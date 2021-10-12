@@ -54,3 +54,11 @@ fn main() {
     let mut my_iter = my_vec.iter();
     assert_ne!(my_iter.next(), my_iter.next());
 }
+
+#[test]
+fn eq_op_shouldnt_trigger_in_tests() {
+    let a = 1;
+    let b = 2;
+    assert_eq!(a, a);
+    assert_eq!(a + b, b + a);
+}
