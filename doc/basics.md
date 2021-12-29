@@ -132,38 +132,25 @@ an abbreviation or meaning is unclear to you.
 
 ## Install from source
 
-If you are hacking on Clippy and want to install it from source, do the following:
-
-First, take note of the toolchain [override](https://rust-lang.github.io/rustup/overrides.html) in `/rust-toolchain`.
-We will use this override to install Clippy into the right toolchain.
-
-> Tip: You can view the active toolchain for the current directory with `rustup show active-toolchain`.
-
-From the Clippy project root, run the following command to build the Clippy binaries and copy them into the
-toolchain directory. This will override the currently installed Clippy component.
+If you are hacking on Clippy and want to install it from source, run the following command in the
+Clippy project root. This will build the Clippy binaries and install them under a new toolchain
+called `clippy`.
 
 ```terminal
-cargo build --release --bin cargo-clippy --bin clippy-driver -Zunstable-options --out-dir "$(rustc --print=sysroot)/bin"
+cargo dev install
 ```
 
-Now you may run `cargo clippy` in any project, using the toolchain where you just installed Clippy.
+Now you may run `cargo clippy` in any project, using the `clippy` toolchain.
 
 ```terminal
 cd my-project
-cargo +nightly-2021-07-01 clippy
+cargo +clippy clippy
 ```
 
 ...or `clippy-driver`
 
 ```terminal
-clippy-driver +nightly-2021-07-01 <filename>
-```
-
-If you need to restore the default Clippy installation, run the following (from the Clippy project root).
-
-```terminal
-rustup component remove clippy
-rustup component add clippy
+clippy-driver +clippy <filename>
 ```
 
 > **DO NOT** install using `cargo install --path . --force` since this will overwrite rustup

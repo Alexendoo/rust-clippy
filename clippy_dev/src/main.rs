@@ -3,7 +3,7 @@
 #![warn(rust_2018_idioms, unused_lifetimes)]
 
 use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
-use clippy_dev::{bless, fmt, lint, new_lint, serve, setup, update_lints};
+use clippy_dev::{bless, fmt, install, lint, new_lint, serve, setup, update_lints};
 fn main() {
     let matches = get_clap_config();
 
@@ -58,6 +58,10 @@ fn main() {
         ("lint", Some(matches)) => {
             let filename = matches.value_of("filename").unwrap();
             lint::run(filename);
+        },
+        ("install", Some(matches)) => {
+            let toolchain = matches.value_of("toolchain").unwrap();
+            install::run(toolchain);
         },
         _ => {},
     }
@@ -230,6 +234,16 @@ fn get_clap_config<'a>() -> ArgMatches<'a> {
                     Arg::with_name("filename")
                         .required(true)
                         .help("The path to a file to lint"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("install")
+                .about("Install clippy as a rustup toolchain")
+                .arg(
+                    Arg::with_name("toolchain")
+                        .long("toolchain")
+                        .default_value("clippy")
+                        .help("Name of the toolchain to create"),
                 ),
         )
         .get_matches()
