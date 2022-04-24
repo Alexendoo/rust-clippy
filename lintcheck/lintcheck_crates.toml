@@ -33,3 +33,19 @@ cfg-expr = {name = "cfg-expr", versions = ['0.7.1']}
 puffin = {name = "puffin", git_url = "https://github.com/EmbarkStudios/puffin", git_hash = "02dd4a3"}
 rpmalloc = {name = "rpmalloc", versions = ['0.2.0']}
 tame-oidc = {name = "tame-oidc", versions = ['0.1.0']}
+
+[recursive]
+ignore = [
+    # crates with native build stuff are way slower under clippy for some reason
+    "*-sys",
+    "ring",
+    "winapi",
+    # old dependency with an unnormalized Cargo.toml that contains a `path =` dependency
+    "commoncrypto",
+    # Not many lints but slow under clippy
+    "combine",
+    # 258315 occurrences of clippy::match_same_arms
+    "unicode-normalization",
+    # 8210 occurrences of clippy::unreadable_literal
+    "crc32fast",
+]

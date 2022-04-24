@@ -7,10 +7,9 @@
 
 #![allow(clippy::collapsible_else_if)]
 
-use std::ffi::OsStr;
 use std::fmt::Write as _;
+use std::fs::canonicalize;
 use std::process::Command;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::HashMap, io::ErrorKind};
 use std::{
     env,
@@ -30,11 +29,15 @@ use walkdir::{DirEntry, WalkDir};
 const CLIPPY_DRIVER_PATH: &str = "target/debug/clippy-driver";
 #[cfg(not(windows))]
 const CARGO_CLIPPY_PATH: &str = "target/debug/cargo-clippy";
+#[cfg(not(windows))]
+const LINTCHECK_DRIVER_PATH: &str = "target/debug/lintcheck-driver";
 
 #[cfg(windows)]
 const CLIPPY_DRIVER_PATH: &str = "target/debug/clippy-driver.exe";
 #[cfg(windows)]
 const CARGO_CLIPPY_PATH: &str = "target/debug/cargo-clippy.exe";
+#[cfg(windows)]
+const LINTCHECK_DRIVER_PATH: &str = "target/debug/lintcheck-driver.exe";
 
 const LINTCHECK_DOWNLOADS: &str = "target/lintcheck/downloads";
 const LINTCHECK_SOURCES: &str = "target/lintcheck/sources";
@@ -93,7 +96,6 @@ struct Crate {
 #[derive(Debug)]
 struct ClippyWarning {
     crate_name: String,
-    crate_version: String,
     file: String,
     line: String,
     column: String,
@@ -105,25 +107,22 @@ struct ClippyWarning {
 #[allow(unused)]
 impl ClippyWarning {
     fn to_output(&self, markdown: bool) -> String {
-        let file = format!("{}-{}/{}", &self.crate_name, &self.crate_version, &self.file);
-        let file_with_pos = format!("{}:{}:{}", &file, &self.line, &self.column);
+        let file_with_pos = format!("{}:{}:{}", &self.file, &self.line, &self.column);
         if markdown {
             let lint = format!("`{}`", self.linttype);
 
+            let mut file = self.file.clone();
+            if !file.starts_with('$') {
+                file.insert_str(0, "../");
+            }
+
             let mut output = String::from("| ");
-            let _ = write!(
-                output,
-                "[`{}`](../target/lintcheck/sources/{}#L{})",
-                file_with_pos, file, self.line
-            );
+            let _ = write!(output, "[`{}`]({}#L{})", file_with_pos, file, self.line);
             let _ = write!(output, r#" | {:<50} | "{}" |"#, lint, self.message);
             output.push('\n');
             output
         } else {
-            format!(
-                "target/lintcheck/sources/{} {} \"{}\"\n",
-                file_with_pos, self.linttype, self.message
-            )
+            format!("{} {} \"{}\"\n", file_with_pos, self.linttype, self.message)
         }
     }
 }
@@ -277,35 +276,36 @@ impl Crate {
     fn run_clippy_lints(
         &self,
         cargo_clippy_path: &Path,
-        target_dir_index: &AtomicUsize,
-        thread_limit: usize,
+        target_subdir: &Path,
+        index: usize,
         total_crates_to_lint: usize,
-        fix: bool,
+        config: &LintcheckConfig,
         lint_filter: &Vec<String>,
     ) -> Vec<ClippyWarning> {
-        // advance the atomic index by one
-        let index = target_dir_index.fetch_add(1, Ordering::SeqCst);
-        // "loop" the index within 0..thread_limit
-        let thread_index = index % thread_limit;
         let perc = (index * 100) / total_crates_to_lint;
 
-        if thread_limit == 1 {
+        if config.max_jobs == 1 {
             println!(
                 "{}/{} {}% Linting {} {}",
                 index, total_crates_to_lint, perc, &self.name, &self.version
             );
         } else {
             println!(
-                "{}/{} {}% Linting {} {} in target dir {:?}",
-                index, total_crates_to_lint, perc, &self.name, &self.version, thread_index
+                "{}/{} {}% Linting {} {} in target dir {}",
+                index,
+                total_crates_to_lint,
+                perc,
+                &self.name,
+                &self.version,
+                target_subdir.display(),
             );
         }
 
-        let cargo_clippy_path = std::fs::canonicalize(cargo_clippy_path).unwrap();
+        let cargo_clippy_path = canonicalize(cargo_clippy_path).unwrap();
 
         let shared_target_dir = clippy_project_root().join("target/lintcheck/shared_target_dir");
 
-        let mut args = if fix {
+        let mut args = if config.fix {
             vec!["--fix", "--"]
         } else {
             vec!["--", "--message-format=json", "--"]
@@ -326,25 +326,31 @@ impl Crate {
             args.extend(lint_filter.iter().map(|filter| filter.as_str()))
         }
 
-        let all_output = std::process::Command::new(&cargo_clippy_path)
-            // use the looping index to create individual target dirs
-            .env(
-                "CARGO_TARGET_DIR",
-                shared_target_dir.join(format!("_{:?}", thread_index)),
-            )
+        let mut command = std::process::Command::new(&cargo_clippy_path);
+
+        // use the looping index to create individual target dirs
+        command
+            .env("CARGO_TARGET_DIR", shared_target_dir.join(target_subdir))
             // lint warnings will look like this:
             // src/cargo/ops/cargo_compile.rs:127:35: warning: usage of `FromIterator::from_iter`
             .args(&args)
-            .current_dir(&self.path)
-            .output()
-            .unwrap_or_else(|error| {
-                panic!(
-                    "Encountered error:\n{:?}\ncargo_clippy_path: {}\ncrate path:{}\n",
-                    error,
-                    &cargo_clippy_path.display(),
-                    &self.path.display()
-                );
-            });
+            .current_dir(&self.path);
+
+        if config.recursive {
+            command
+                .env("RUSTC_WRAPPER", canonicalize(LINTCHECK_DRIVER_PATH).unwrap())
+                .env("CLIPPY_DRIVER", canonicalize(CLIPPY_DRIVER_PATH).unwrap())
+                .env("SOURCES_TOML", config.sources_toml_path.canonicalize().unwrap());
+        }
+
+        let all_output = command.output().unwrap_or_else(|error| {
+            panic!(
+                "Encountered error:\n{:?}\ncargo_clippy_path: {}\ncrate path:{}\n",
+                error,
+                &cargo_clippy_path.display(),
+                &self.path.display()
+            );
+        });
         let stdout = String::from_utf8_lossy(&all_output.stdout);
         let stderr = String::from_utf8_lossy(&all_output.stderr);
         let status = &all_output.status;
@@ -356,7 +362,7 @@ impl Crate {
             );
         }
 
-        if fix {
+        if config.fix {
             if let Some(stderr) = stderr
                 .lines()
                 .find(|line| line.contains("failed to automatically apply fixes suggested by rustc to crate"))
@@ -397,6 +403,8 @@ struct LintcheckConfig {
     lint_filter: Vec<String>,
     /// Indicate if the output should support markdown syntax
     markdown: bool,
+    /// Run clippy on the dependencies of crates specified in crates-toml
+    recursive: bool,
 }
 
 impl LintcheckConfig {
@@ -444,6 +452,7 @@ impl LintcheckConfig {
             None => 1,
         };
         let fix: bool = clap_config.is_present("fix");
+        let recursive = clap_config.is_present("recursive");
         let lint_filter: Vec<String> = clap_config
             .values_of("filter")
             .map(|iter| {
@@ -465,6 +474,7 @@ impl LintcheckConfig {
             fix,
             lint_filter,
             markdown,
+            recursive,
         }
     }
 }
@@ -572,31 +582,15 @@ fn read_crates(toml_path: &Path) -> Vec<CrateSource> {
 fn parse_json_message(json_message: &str, krate: &Crate) -> ClippyWarning {
     let jmsg: Value = serde_json::from_str(&json_message).unwrap_or_else(|e| panic!("Failed to parse json:\n{:?}", e));
 
-    let file: String = jmsg["message"]["spans"][0]["file_name"]
-        .to_string()
-        .trim_matches('"')
-        .into();
+    let file = jmsg["message"]["spans"][0]["file_name"].as_str().unwrap();
 
-    let file = if file.contains(".cargo") {
-        // if we deal with macros, a filename may show the origin of a macro which can be inside a dep from
-        // the registry.
-        // don't show the full path in that case.
-
-        // /home/matthias/.cargo/registry/src/github.com-1ecc6299db9ec823/syn-1.0.63/src/custom_keyword.rs
-        let path = PathBuf::from(file);
-        let mut piter = path.iter();
-        // consume all elements until we find ".cargo", so that "/home/matthias" is skipped
-        let _: Option<&OsStr> = piter.find(|x| x == &std::ffi::OsString::from(".cargo"));
-        // collect the remaining segments
-        let file = piter.collect::<PathBuf>();
-        format!("{}", file.display())
-    } else {
-        file
+    let file = match Path::new(file).strip_prefix(env!("CARGO_HOME")) {
+        Ok(stripped) => format!("$CARGO_HOME/{}", stripped.display()),
+        Err(_) => format!("target/lintcheck/sources/{}-{}/{}", krate.name, krate.version, file),
     };
 
     ClippyWarning {
         crate_name: krate.name.to_string(),
-        crate_version: krate.version.to_string(),
         file,
         line: jmsg["message"]["spans"][0]["line_start"]
             .to_string()
@@ -725,7 +719,6 @@ pub fn main() {
     let crates = read_crates(&config.sources_toml_path);
     let old_stats = read_stats_from_file(&config.lintcheck_results_path);
 
-    let counter = AtomicUsize::new(1);
     let lint_filter: Vec<String> = config
         .lint_filter
         .iter()
@@ -735,6 +728,20 @@ pub fn main() {
             filter
         })
         .collect();
+
+    let subdir = if config.recursive {
+        let status = Command::new("cargo")
+            .args(["build", "--manifest-path=lintcheck/driver/Cargo.toml"])
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(0));
+        // --recursive doesn't support reusing the target dir, as cargo does not re-emit
+        // warnings from dependencies
+        let _ = std::fs::remove_dir_all("target/lintcheck/shared_target_dir/recursive");
+        Path::new("recursive")
+    } else {
+        Path::new("_0")
+    };
 
     let clippy_warnings: Vec<ClippyWarning> = if let Some(only_one_crate) = clap_config.value_of("only") {
         // if we don't have the specified crate in the .toml, throw an error
@@ -758,50 +765,46 @@ pub fn main() {
             .into_iter()
             .map(|krate| krate.download_and_extract())
             .filter(|krate| krate.name == only_one_crate)
-            .flat_map(|krate| {
-                krate.run_clippy_lints(&cargo_clippy_path, &AtomicUsize::new(0), 1, 1, config.fix, &lint_filter)
-            })
+            .flat_map(|krate| krate.run_clippy_lints(&cargo_clippy_path, subdir, 1, 1, &config, &lint_filter))
             .collect()
     } else {
         if config.max_jobs > 1 {
             // run parallel with rayon
 
-            // Ask rayon for thread count. Assume that half of that is the number of physical cores
-            // Use one target dir for each core so that we can run N clippys in parallel.
-            // We need to use different target dirs because cargo would lock them for a single build otherwise,
-            // killing the parallelism. However this also means that deps will only be reused half/a
-            // quarter of the time which might result in a longer wall clock runtime
-
             // This helps when we check many small crates with dep-trees that don't have a lot of branches in
             // order to achieve some kind of parallelism
 
-            // by default, use a single thread
-            let num_cpus = config.max_jobs;
-            let num_crates = crates.len();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(config.max_jobs)
+                .build_global()
+                .unwrap();
 
-            // check all crates (default)
             crates
-                .into_par_iter()
+                .par_iter()
                 .map(|krate| krate.download_and_extract())
-                .flat_map(|krate| {
+                .enumerate()
+                .flat_map(|(index, krate)| {
+                    // "loop" the index within 0..thread_limit
+                    let subdir = format!("_{}", index % config.max_jobs);
+
                     krate.run_clippy_lints(
                         &cargo_clippy_path,
-                        &counter,
-                        num_cpus,
-                        num_crates,
-                        config.fix,
+                        Path::new(&subdir),
+                        index,
+                        crates.len(),
+                        &config,
                         &lint_filter,
                     )
                 })
                 .collect()
         } else {
             // run sequential
-            let num_crates = crates.len();
             crates
-                .into_iter()
+                .iter()
                 .map(|krate| krate.download_and_extract())
-                .flat_map(|krate| {
-                    krate.run_clippy_lints(&cargo_clippy_path, &counter, 1, num_crates, config.fix, &lint_filter)
+                .enumerate()
+                .flat_map(|(index, krate)| {
+                    krate.run_clippy_lints(&cargo_clippy_path, subdir, index, crates.len(), &config, &lint_filter)
                 })
                 .collect()
         }
@@ -837,7 +840,7 @@ pub fn main() {
         text.push_str("| file | lint | message |\n");
         text.push_str("| --- | --- | --- |\n");
     }
-    write!(text, "{}", all_msgs.join(""));
+    write!(text, "{}", all_msgs.join("")).unwrap();
     text.push_str("\n\n### ICEs:\n");
     for (cratename, msg) in ices.iter() {
         let _ = write!(text, "{}: '{}'", cratename, msg);
@@ -991,6 +994,15 @@ fn get_clap_config<'a>() -> ArgMatches<'a> {
             Arg::with_name("markdown")
                 .long("--markdown")
                 .help("change the reports table to use markdown links"),
+        )
+        .arg(
+            Arg::with_name("recursive")
+                .long("--recursive")
+                // `cargo fix` only applies to primary packages
+                .conflicts_with("fix")
+                // would result in duplicate warnings
+                .conflicts_with("threads")
+                .help("run clippy on the dependencies of crates specified in crates-toml"),
         )
         .get_matches()
 }
