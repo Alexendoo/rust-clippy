@@ -342,10 +342,43 @@ pub fn main() {
             args.extend(clippy_args);
         }
 
-        if clippy_enabled {
+        let ran = if clippy_enabled {
             rustc_driver::RunCompiler::new(&args, &mut ClippyCallbacks { clippy_args_var }).run()
         } else {
             rustc_driver::RunCompiler::new(&args, &mut RustcCallbacks { clippy_args_var }).run()
+        };
+
+        use std::fs::File;
+        use std::io::{BufWriter, Write};
+        use std::process;
+        use std::time::Duration;
+
+        let stats = clippy_lints::collect();
+        let grand_total = stats.iter().map(|stat| stat.total).sum::<Duration>();
+
+        if !grand_total.is_zero() {
+            let prof_dir = PathBuf::from(env::var("PROF_DIR").unwrap());
+            assert!(prof_dir.is_absolute());
+
+            let out = File::options()
+                .write(true)
+                .create_new(true)
+                .open(format!("{}/{grand_total:?}.{}.txt", prof_dir.display(), process::id()))
+                .unwrap();
+            let mut out = BufWriter::new(out);
+
+            writeln!(out, "{}", env::args().collect::<Vec<_>>().join(" ")).unwrap();
+            for clippy_lints::Stat {
+                location,
+                max,
+                total,
+                count,
+            } in stats
+            {
+                writeln!(out, "{location} total {total:?} count {count} max {max:?} avg {:?}", total / count as u32).unwrap();
+            }
         }
+
+        ran
     }))
 }

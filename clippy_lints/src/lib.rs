@@ -958,6 +958,92 @@ pub fn register_renamed(ls: &mut rustc_lint::LintStore) {
     }
 }
 
+use std::cmp::Reverse;
+use std::lazy::SyncLazy;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+/// ### Setup
+/// ```sh
+/// git ls-files clippy_lints | xargs sd -f sm '^    fn check_.*?\{' '$0 let _prof = crate::prof!();'
+/// mkdir prof
+/// ```
+/// ### Run
+/// ```sh
+/// PROF_DIR=$(realpath prof) cargo dev lint ...
+/// # or any other clippy invocation
+/// ```
+struct Prof {
+    start: Instant,
+    stat: &'static AtomicStat,
+}
+
+impl Drop for Prof {
+    fn drop(&mut self) {
+        let elapsed = self.start.elapsed().as_nanos() as u64;
+
+        self.stat.max.fetch_max(elapsed, Ordering::Relaxed);
+        self.stat.total.fetch_add(elapsed, Ordering::Relaxed);
+        self.stat.count.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+pub(crate) struct AtomicStat {
+    location: &'static str,
+    max: AtomicU64,
+    total: AtomicU64,
+    count: AtomicU64,
+}
+
+pub struct Stat {
+    pub location: &'static str,
+    pub max: Duration,
+    pub total: Duration,
+    pub count: u64,
+}
+
+pub(crate) static STATS: SyncLazy<Mutex<Vec<&'static AtomicStat>>> = SyncLazy::new(|| Mutex::default());
+
+pub fn collect() -> Vec<Stat> {
+    let mut stats: Vec<Stat> = STATS
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|stat| Stat {
+            location: stat.location,
+            max: Duration::from_nanos(stat.max.load(Ordering::SeqCst)),
+            total: Duration::from_nanos(stat.total.load(Ordering::SeqCst)),
+            count: stat.count.load(Ordering::SeqCst),
+        })
+        .collect();
+    stats.sort_by_key(|stat| Reverse(stat.total));
+
+    stats
+}
+
+#[macro_export]
+macro_rules! prof {
+    () => {{
+        static STAT: $crate::AtomicStat = $crate::AtomicStat {
+            location: concat!(file!(), ':', line!()),
+            max: std::sync::atomic::AtomicU64::new(0),
+            total: std::sync::atomic::AtomicU64::new(0),
+            count: std::sync::atomic::AtomicU64::new(0),
+        };
+
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            $crate::STATS.lock().unwrap().push(&STAT);
+        });
+
+        $crate::Prof {
+            start: std::time::Instant::now(),
+            stat: &STAT,
+        }
+    }};
+}
+
 // only exists to let the dogfood integration test works.
 // Don't run clippy as an executable directly
 #[allow(dead_code)]
