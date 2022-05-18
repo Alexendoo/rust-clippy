@@ -73,71 +73,69 @@ where
             ),
         >,
 {
-    if_chain! {
-        if iter.len() >= 2;
-        if cx.typeck_results().expr_ty(expr).is_bool();
-        if let Some((_, last_pat_opt, last_expr, _)) = iter.next_back();
-        let iter_without_last = iter.clone();
-        if let Some((first_attrs, _, first_expr, first_guard)) = iter.next();
-        if let Some(b0) = find_bool_lit(&first_expr.kind, is_if_let);
-        if let Some(b1) = find_bool_lit(&last_expr.kind, is_if_let);
-        if b0 != b1;
-        if first_guard.is_none() || iter.len() == 0;
-        if first_attrs.is_empty();
-        if iter
+    if iter.len() >= 2
+        && cx.typeck_results().expr_ty(expr).is_bool()
+        && let Some((_, last_pat_opt, last_expr, _)) = iter.next_back()
+        && let iter_without_last = iter.clone()
+        && let Some((first_attrs, _, first_expr, first_guard)) = iter.next()
+        && let Some(b0) = find_bool_lit(&first_expr.kind, is_if_let)
+        && let Some(b1) = find_bool_lit(&last_expr.kind, is_if_let)
+        && b0 != b1
+        && (first_guard.is_none() || iter.len() == 0)
+        && first_attrs.is_empty()
+        && iter
             .all(|arm| {
                 find_bool_lit(&arm.2.kind, is_if_let).map_or(false, |b| b == b0) && arm.3.is_none() && arm.0.is_empty()
-            });
-        then {
-            if let Some(last_pat) = last_pat_opt {
-                if !is_wild(last_pat) {
-                    return false;
-                }
+            })
+    {
+        if let Some(last_pat) = last_pat_opt {
+            if !is_wild(last_pat) {
+                return false;
             }
-
-            // The suggestion may be incorrect, because some arms can have `cfg` attributes
-            // evaluated into `false` and so such arms will be stripped before.
-            let mut applicability = Applicability::MaybeIncorrect;
-            let pat = {
-                use itertools::Itertools as _;
-                iter_without_last
-                    .filter_map(|arm| {
-                        let pat_span = arm.1?.span;
-                        Some(snippet_with_applicability(cx, pat_span, "..", &mut applicability))
-                    })
-                    .join(" | ")
-            };
-            let pat_and_guard = if let Some(Guard::If(g)) = first_guard {
-                format!("{} if {}", pat, snippet_with_applicability(cx, g.span, "..", &mut applicability))
-            } else {
-                pat
-            };
-
-            // strip potential borrows (#6503), but only if the type is a reference
-            let mut ex_new = ex;
-            if let ExprKind::AddrOf(BorrowKind::Ref, .., ex_inner) = ex.kind {
-                if let ty::Ref(..) = cx.typeck_results().expr_ty(ex_inner).kind() {
-                    ex_new = ex_inner;
-                }
-            };
-            span_lint_and_sugg(
-                cx,
-                MATCH_LIKE_MATCHES_MACRO,
-                expr.span,
-                &format!("{} expression looks like `matches!` macro", if is_if_let { "if let .. else" } else { "match" }),
-                "try this",
-                format!(
-                    "{}matches!({}, {})",
-                    if b0 { "" } else { "!" },
-                    snippet_with_applicability(cx, ex_new.span, "..", &mut applicability),
-                    pat_and_guard,
-                ),
-                applicability,
-            );
-            true
-        } else {
-            false
         }
+
+        // The suggestion may be incorrect, because some arms can have `cfg` attributes
+        // evaluated into `false` and so such arms will be stripped before.
+        let mut applicability = Applicability::MaybeIncorrect;
+        let pat = {
+            use itertools::Itertools as _;
+            iter_without_last
+                .filter_map(|arm| {
+                    let pat_span = arm.1?.span;
+                    Some(snippet_with_applicability(cx, pat_span, "..", &mut applicability))
+                })
+                .join(" | ")
+        };
+        let pat_and_guard = if let Some(Guard::If(g)) = first_guard {
+            format!("{} if {}", pat, snippet_with_applicability(cx, g.span, "..", &mut applicability))
+        } else {
+            pat
+        };
+
+        // strip potential borrows (#6503), but only if the type is a reference
+        let mut ex_new = ex;
+        if let ExprKind::AddrOf(BorrowKind::Ref, .., ex_inner) = ex.kind {
+            if let ty::Ref(..) = cx.typeck_results().expr_ty(ex_inner).kind() {
+                ex_new = ex_inner;
+            }
+        };
+        span_lint_and_sugg(
+            cx,
+            MATCH_LIKE_MATCHES_MACRO,
+            expr.span,
+            &format!("{} expression looks like `matches!` macro", if is_if_let { "if let .. else" } else { "match" }),
+            "try this",
+            format!(
+                "{}matches!({}, {})",
+                if b0 { "" } else { "!" },
+                snippet_with_applicability(cx, ex_new.span, "..", &mut applicability),
+                pat_and_guard,
+            ),
+            applicability,
+        );
+        true
+    } else {
+        false
     }
 }
 

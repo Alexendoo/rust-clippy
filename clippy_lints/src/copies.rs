@@ -4,7 +4,6 @@ use clippy_utils::{
     both, count_eq, eq_expr_value, get_enclosing_block, get_parent_expr, if_sequence, is_else_clause, is_lint_allowed,
     search_same, ContainsName, SpanlessEq, SpanlessHash,
 };
-use if_chain::if_chain;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::{Applicability, Diagnostic};
 use rustc_hir::intravisit::{self, Visitor};
@@ -344,28 +343,26 @@ fn scan_block_for_eq(cx: &LateContext<'_>, conds: &[&Expr<'_>], blocks: &[&Block
         let block_expr_eq = both(&block0.expr, &block1.expr, |l, r| evaluator.eq_expr(l, r));
 
         // IF_SAME_THEN_ELSE
-        if_chain! {
-            if block_expr_eq;
-            if l_stmts.len() == r_stmts.len();
-            if l_stmts.len() == current_start_eq;
+        if block_expr_eq
+            && l_stmts.len() == r_stmts.len()
+            && l_stmts.len() == current_start_eq
             // `conds` may have one last item than `blocks`.
             // Any `i` from `blocks.windows(2)` will exist in `conds`, but `i+1` may not exist on the last iteration.
-            if !matches!(conds[i].kind, ExprKind::Let(..));
-            if !matches!(conds.get(i + 1).map(|e| &e.kind), Some(ExprKind::Let(..)));
-            if !is_lint_allowed(cx, IF_SAME_THEN_ELSE, block0.hir_id);
-            if !is_lint_allowed(cx, IF_SAME_THEN_ELSE, block1.hir_id);
-            then {
-                span_lint_and_note(
-                    cx,
-                    IF_SAME_THEN_ELSE,
-                    block0.span,
-                    "this `if` has identical blocks",
-                    Some(block1.span),
-                    "same as this",
-                );
+            && !matches!(conds[i].kind, ExprKind::Let(..))
+            && !matches!(conds.get(i + 1).map(|e| &e.kind), Some(ExprKind::Let(..)))
+            && !is_lint_allowed(cx, IF_SAME_THEN_ELSE, block0.hir_id)
+            && !is_lint_allowed(cx, IF_SAME_THEN_ELSE, block1.hir_id)
+        {
+            span_lint_and_note(
+                cx,
+                IF_SAME_THEN_ELSE,
+                block0.span,
+                "this `if` has identical blocks",
+                Some(block1.span),
+                "same as this",
+            );
 
-                return None;
-            }
+            return None;
         }
 
         start_eq = start_eq.min(current_start_eq);

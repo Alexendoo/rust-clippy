@@ -1,5 +1,4 @@
 use clippy_utils::diagnostics::span_lint_and_help;
-use if_chain::if_chain;
 use rustc_hir as hir;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
@@ -47,13 +46,11 @@ impl<'tcx> LateLintPass<'tcx> for IntegerDivision {
 }
 
 fn is_integer_division<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'_>) -> bool {
-    if_chain! {
-        if let hir::ExprKind::Binary(binop, left, right) = &expr.kind;
-        if binop.node == hir::BinOpKind::Div;
-        then {
-            let (left_ty, right_ty) = (cx.typeck_results().expr_ty(left), cx.typeck_results().expr_ty(right));
-            return left_ty.is_integral() && right_ty.is_integral();
-        }
+    if let hir::ExprKind::Binary(binop, left, right) = &expr.kind
+        && binop.node == hir::BinOpKind::Div
+    {
+        let (left_ty, right_ty) = (cx.typeck_results().expr_ty(left), cx.typeck_results().expr_ty(right));
+        return left_ty.is_integral() && right_ty.is_integral();
     }
 
     false

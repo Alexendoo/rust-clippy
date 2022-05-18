@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::numeric_literal::NumericLiteral;
 use clippy_utils::source::snippet_opt;
-use if_chain::if_chain;
 use rustc_ast::{LitFloatType, LitIntType, LitKind};
 use rustc_errors::Applicability;
 use rustc_hir::def::Res;
@@ -20,31 +19,26 @@ pub(super) fn check(
     cast_to: Ty<'_>,
 ) -> bool {
     // skip non-primitive type cast
-    if_chain! {
-        if let ExprKind::Cast(_, cast_to) = expr.kind;
-        if let TyKind::Path(QPath::Resolved(_, path)) = &cast_to.kind;
-        if let Res::PrimTy(_) = path.res;
-        then {}
-        else {
-            return false
-        }
+    if let ExprKind::Cast(_, cast_to) = expr.kind
+        && let TyKind::Path(QPath::Resolved(_, path)) = &cast_to.kind
+        && let Res::PrimTy(_) = path.res
+    {} else {
+        return false;
     }
 
     if let Some(lit) = get_numeric_literal(cast_expr) {
         let literal_str = snippet_opt(cx, cast_expr.span).unwrap_or_default();
 
-        if_chain! {
-            if let LitKind::Int(n, _) = lit.node;
-            if let Some(src) = snippet_opt(cx, cast_expr.span);
-            if cast_to.is_floating_point();
-            if let Some(num_lit) = NumericLiteral::from_lit_kind(&src, &lit.node);
-            let from_nbits = 128 - n.leading_zeros();
-            let to_nbits = fp_ty_mantissa_nbits(cast_to);
-            if from_nbits != 0 && to_nbits != 0 && from_nbits <= to_nbits && num_lit.is_decimal();
-            then {
-                lint_unnecessary_cast(cx, expr, num_lit.integer, cast_from, cast_to);
-                return true
-            }
+        if let LitKind::Int(n, _) = lit.node
+            && let Some(src) = snippet_opt(cx, cast_expr.span)
+            && cast_to.is_floating_point()
+            && let Some(num_lit) = NumericLiteral::from_lit_kind(&src, &lit.node)
+            && let from_nbits = 128 - n.leading_zeros()
+            && let to_nbits = fp_ty_mantissa_nbits(cast_to)
+            && from_nbits != 0 && to_nbits != 0 && from_nbits <= to_nbits && num_lit.is_decimal()
+        {
+            lint_unnecessary_cast(cx, expr, num_lit.integer, cast_from, cast_to);
+            return true
         }
 
         match lit.node {

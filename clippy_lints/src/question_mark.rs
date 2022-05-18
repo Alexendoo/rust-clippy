@@ -4,7 +4,6 @@ use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{eq_expr_value, is_lang_ctor, path_to_local, path_to_local_id, peel_blocks, peel_blocks_with_stmt};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::LangItem::{OptionNone, OptionSome, ResultOk};
 use rustc_hir::{BindingAnnotation, Expr, ExprKind, PatKind};
@@ -56,69 +55,65 @@ impl QuestionMark {
     ///
     /// If it matches, it will suggest to use the question mark operator instead
     fn check_is_none_or_err_and_early_return(cx: &LateContext<'_>, expr: &Expr<'_>) {
-        if_chain! {
-            if let Some(higher::If { cond, then, r#else }) = higher::If::hir(expr);
-            if let ExprKind::MethodCall(segment, args, _) = &cond.kind;
-            if let Some(subject) = args.get(0);
-            if (Self::option_check_and_early_return(cx, subject, then) && segment.ident.name == sym!(is_none)) ||
-                (Self::result_check_and_early_return(cx, subject, then) && segment.ident.name == sym!(is_err));
-            then {
-                let mut applicability = Applicability::MachineApplicable;
-                let receiver_str = &Sugg::hir_with_applicability(cx, subject, "..", &mut applicability);
-                let mut replacement: Option<String> = None;
-                if let Some(else_inner) = r#else {
-                    if eq_expr_value(cx, subject, peel_blocks(else_inner)) {
-                        replacement = Some(format!("Some({}?)", receiver_str));
-                    }
-                } else if Self::moves_by_default(cx, subject)
-                    && !matches!(subject.kind, ExprKind::Call(..) | ExprKind::MethodCall(..))
-                {
-                    replacement = Some(format!("{}.as_ref()?;", receiver_str));
-                } else {
-                    replacement = Some(format!("{}?;", receiver_str));
+        if let Some(higher::If { cond, then, r#else }) = higher::If::hir(expr)
+            && let ExprKind::MethodCall(segment, args, _) = &cond.kind
+            && let Some(subject) = args.get(0)
+            && ((Self::option_check_and_early_return(cx, subject, then) && segment.ident.name == sym!(is_none)) ||
+                (Self::result_check_and_early_return(cx, subject, then) && segment.ident.name == sym!(is_err)))
+        {
+            let mut applicability = Applicability::MachineApplicable;
+            let receiver_str = &Sugg::hir_with_applicability(cx, subject, "..", &mut applicability);
+            let mut replacement: Option<String> = None;
+            if let Some(else_inner) = r#else {
+                if eq_expr_value(cx, subject, peel_blocks(else_inner)) {
+                    replacement = Some(format!("Some({}?)", receiver_str));
                 }
+            } else if Self::moves_by_default(cx, subject)
+                && !matches!(subject.kind, ExprKind::Call(..) | ExprKind::MethodCall(..))
+            {
+                replacement = Some(format!("{}.as_ref()?;", receiver_str));
+            } else {
+                replacement = Some(format!("{}?;", receiver_str));
+            }
 
-                if let Some(replacement_str) = replacement {
-                    span_lint_and_sugg(
-                        cx,
-                        QUESTION_MARK,
-                        expr.span,
-                        "this block may be rewritten with the `?` operator",
-                        "replace it with",
-                        replacement_str,
-                        applicability,
-                    );
-                }
+            if let Some(replacement_str) = replacement {
+                span_lint_and_sugg(
+                    cx,
+                    QUESTION_MARK,
+                    expr.span,
+                    "this block may be rewritten with the `?` operator",
+                    "replace it with",
+                    replacement_str,
+                    applicability,
+                );
             }
         }
     }
 
     fn check_if_let_some_or_err_and_early_return(cx: &LateContext<'_>, expr: &Expr<'_>) {
-        if_chain! {
-            if let Some(higher::IfLet { let_pat, let_expr, if_then, if_else: Some(if_else) })
-                = higher::IfLet::hir(cx, expr);
-            if let PatKind::TupleStruct(ref path1, fields, None) = let_pat.kind;
-            if (Self::option_check_and_early_return(cx, let_expr, if_else) && is_lang_ctor(cx, path1, OptionSome)) ||
-                (Self::result_check_and_early_return(cx, let_expr, if_else) && is_lang_ctor(cx, path1, ResultOk));
+        if let Some(higher::IfLet { let_pat, let_expr, if_then, if_else: Some(if_else) })
+                = higher::IfLet::hir(cx, expr)
+            && let PatKind::TupleStruct(ref path1, fields, None) = let_pat.kind
+            && ((Self::option_check_and_early_return(cx, let_expr, if_else) && is_lang_ctor(cx, path1, OptionSome)) ||
+                (Self::result_check_and_early_return(cx, let_expr, if_else) && is_lang_ctor(cx, path1, ResultOk)))
 
-            if let PatKind::Binding(annot, bind_id, _, _) = fields[0].kind;
-            let by_ref = matches!(annot, BindingAnnotation::Ref | BindingAnnotation::RefMut);
-            if path_to_local_id(peel_blocks(if_then), bind_id);
-            then {
-                let mut applicability = Applicability::MachineApplicable;
-                let receiver_str = snippet_with_applicability(cx, let_expr.span, "..", &mut applicability);
-                let replacement = format!("{}{}?", receiver_str, if by_ref { ".as_ref()" } else { "" },);
+            && let PatKind::Binding(annot, bind_id, _, _) = fields[0].kind
+            && let by_ref = matches!(annot, BindingAnnotation::Ref | BindingAnnotation::RefMut)
+            && path_to_local_id(peel_blocks(if_then), bind_id)
+        {
+            let mut applicability = Applicability::MachineApplicable;
+            let receiver_str = snippet_with_applicability(cx, let_expr.span, "..", &mut applicability);
+            let replacement = format!("{}{}?", receiver_str, if by_ref { ".as_ref()" } else { "" },);
 
-                span_lint_and_sugg(
-                    cx,
-                    QUESTION_MARK,
-                    expr.span,
-                    "this if-let-else may be rewritten with the `?` operator",
-                    "replace it with",
-                    replacement,
-                    applicability,
-                );
-            }
+            span_lint_and_sugg(
+                cx,
+                QUESTION_MARK,
+                expr.span,
+                "this if-let-else may be rewritten with the `?` operator",
+                "replace it with",
+                replacement,
+                applicability,
+            );
         }
     }
 

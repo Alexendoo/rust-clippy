@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_sugg, span_lin
 use clippy_utils::source::{snippet, snippet_with_applicability};
 use clippy_utils::ty::is_non_aggregate_primitive_type;
 use clippy_utils::{is_default_equivalent, is_lang_ctor, meets_msrv, msrvs};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::LangItem::OptionNone;
 use rustc_hir::{BorrowKind, Expr, ExprKind, Mutability, QPath};
@@ -140,17 +139,38 @@ fn check_replace_option_with_none(cx: &LateContext<'_>, src: &Expr<'_>, dest: &E
 }
 
 fn check_replace_with_uninit(cx: &LateContext<'_>, src: &Expr<'_>, dest: &Expr<'_>, expr_span: Span) {
-    if_chain! {
-        // check if replacement is mem::MaybeUninit::uninit().assume_init()
-        if let Some(method_def_id) = cx.typeck_results().type_dependent_def_id(src.hir_id);
-        if cx.tcx.is_diagnostic_item(sym::assume_init, method_def_id);
-        then {
+    // check if replacement is mem::MaybeUninit::uninit().assume_init()
+    if let Some(method_def_id) = cx.typeck_results().type_dependent_def_id(src.hir_id)
+        && cx.tcx.is_diagnostic_item(sym::assume_init, method_def_id)
+    {
+        let mut applicability = Applicability::MachineApplicable;
+        span_lint_and_sugg(
+            cx,
+            MEM_REPLACE_WITH_UNINIT,
+            expr_span,
+            "replacing with `mem::MaybeUninit::uninit().assume_init()`",
+            "consider using",
+            format!(
+                "std::ptr::read({})",
+                snippet_with_applicability(cx, dest.span, "", &mut applicability)
+            ),
+            applicability,
+        );
+        return;
+    }
+
+    if let ExprKind::Call(repl_func, repl_args) = src.kind
+        && repl_args.is_empty()
+        && let ExprKind::Path(ref repl_func_qpath) = repl_func.kind
+        && let Some(repl_def_id) = cx.qpath_res(repl_func_qpath, repl_func.hir_id).opt_def_id()
+    {
+        if cx.tcx.is_diagnostic_item(sym::mem_uninitialized, repl_def_id) {
             let mut applicability = Applicability::MachineApplicable;
             span_lint_and_sugg(
                 cx,
                 MEM_REPLACE_WITH_UNINIT,
                 expr_span,
-                "replacing with `mem::MaybeUninit::uninit().assume_init()`",
+                "replacing with `mem::uninitialized()`",
                 "consider using",
                 format!(
                     "std::ptr::read({})",
@@ -158,41 +178,16 @@ fn check_replace_with_uninit(cx: &LateContext<'_>, src: &Expr<'_>, dest: &Expr<'
                 ),
                 applicability,
             );
-            return;
-        }
-    }
-
-    if_chain! {
-        if let ExprKind::Call(repl_func, repl_args) = src.kind;
-        if repl_args.is_empty();
-        if let ExprKind::Path(ref repl_func_qpath) = repl_func.kind;
-        if let Some(repl_def_id) = cx.qpath_res(repl_func_qpath, repl_func.hir_id).opt_def_id();
-        then {
-            if cx.tcx.is_diagnostic_item(sym::mem_uninitialized, repl_def_id) {
-                let mut applicability = Applicability::MachineApplicable;
-                span_lint_and_sugg(
-                    cx,
-                    MEM_REPLACE_WITH_UNINIT,
-                    expr_span,
-                    "replacing with `mem::uninitialized()`",
-                    "consider using",
-                    format!(
-                        "std::ptr::read({})",
-                        snippet_with_applicability(cx, dest.span, "", &mut applicability)
-                    ),
-                    applicability,
-                );
-            } else if cx.tcx.is_diagnostic_item(sym::mem_zeroed, repl_def_id) &&
-                    !cx.typeck_results().expr_ty(src).is_primitive() {
-                span_lint_and_help(
-                    cx,
-                    MEM_REPLACE_WITH_UNINIT,
-                    expr_span,
-                    "replacing with `mem::zeroed()`",
-                    None,
-                    "consider using a default value or the `take_mut` crate instead",
-                );
-            }
+        } else if cx.tcx.is_diagnostic_item(sym::mem_zeroed, repl_def_id) &&
+                !cx.typeck_results().expr_ty(src).is_primitive() {
+            span_lint_and_help(
+                cx,
+                MEM_REPLACE_WITH_UNINIT,
+                expr_span,
+                "replacing with `mem::zeroed()`",
+                None,
+                "consider using a default value or the `take_mut` crate instead",
+            );
         }
     }
 }
@@ -244,19 +239,17 @@ impl MemReplace {
 
 impl<'tcx> LateLintPass<'tcx> for MemReplace {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            // Check that `expr` is a call to `mem::replace()`
-            if let ExprKind::Call(func, func_args) = expr.kind;
-            if let ExprKind::Path(ref func_qpath) = func.kind;
-            if let Some(def_id) = cx.qpath_res(func_qpath, func.hir_id).opt_def_id();
-            if cx.tcx.is_diagnostic_item(sym::mem_replace, def_id);
-            if let [dest, src] = func_args;
-            then {
-                check_replace_option_with_none(cx, src, dest, expr.span);
-                check_replace_with_uninit(cx, src, dest, expr.span);
-                if meets_msrv(self.msrv, msrvs::MEM_TAKE) {
-                    check_replace_with_default(cx, src, dest, expr.span);
-                }
+        // Check that `expr` is a call to `mem::replace()`
+        if let ExprKind::Call(func, func_args) = expr.kind
+            && let ExprKind::Path(ref func_qpath) = func.kind
+            && let Some(def_id) = cx.qpath_res(func_qpath, func.hir_id).opt_def_id()
+            && cx.tcx.is_diagnostic_item(sym::mem_replace, def_id)
+            && let [dest, src] = func_args
+        {
+            check_replace_option_with_none(cx, src, dest, expr.span);
+            check_replace_with_uninit(cx, src, dest, expr.span);
+            if meets_msrv(self.msrv, msrvs::MEM_TAKE) {
+                check_replace_with_default(cx, src, dest, expr.span);
             }
         }
     }

@@ -5,7 +5,6 @@ use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::needs_ordered_drop;
 use clippy_utils::{higher, match_def_path};
 use clippy_utils::{is_lang_ctor, is_trait_method, paths};
-use if_chain::if_chain;
 use rustc_ast::ast::LitKind;
 use rustc_errors::Applicability;
 use rustc_hir::LangItem::{OptionNone, PollPending};
@@ -33,15 +32,13 @@ pub(super) fn check<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
 
 // Extract the generic arguments out of a type
 fn try_get_generic_ty(ty: Ty<'_>, index: usize) -> Option<Ty<'_>> {
-    if_chain! {
-        if let ty::Adt(_, subs) = ty.kind();
-        if let Some(sub) = subs.get(index);
-        if let GenericArgKind::Type(sub_ty) = sub.unpack();
-        then {
-            Some(sub_ty)
-        } else {
-            None
-        }
+    if let ty::Adt(_, subs) = ty.kind()
+        && let Some(sub) = subs.get(index)
+        && let GenericArgKind::Type(sub_ty) = sub.unpack()
+    {
+        Some(sub_ty)
+    } else {
+        None
     }
 }
 
@@ -192,14 +189,12 @@ fn find_sugg_for_if_let<'tcx>(
     let needs_drop = needs_ordered_drop(cx, check_ty) || temporaries_need_ordered_drop(cx, let_expr);
 
     // check that `while_let_on_iterator` lint does not trigger
-    if_chain! {
-        if keyword == "while";
-        if let ExprKind::MethodCall(method_path, _, _) = let_expr.kind;
-        if method_path.ident.name == sym::next;
-        if is_trait_method(cx, let_expr, sym::Iterator);
-        then {
-            return;
-        }
+    if keyword == "while"
+        && let ExprKind::MethodCall(method_path, _, _) = let_expr.kind
+        && method_path.ident.name == sym::next
+        && is_trait_method(cx, let_expr, sym::Iterator)
+    {
+        return;
     }
 
     let result_expr = match &let_expr.kind {

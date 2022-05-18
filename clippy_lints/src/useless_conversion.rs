@@ -3,7 +3,6 @@ use clippy_utils::source::{snippet, snippet_with_macro_callsite};
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::{is_type_diagnostic_item, same_type_and_consts};
 use clippy_utils::{get_parent_expr, is_trait_method, match_def_path, paths};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, HirId, MatchSource};
 use rustc_lint::{LateContext, LateLintPass};
@@ -103,75 +102,67 @@ impl<'tcx> LateLintPass<'tcx> for UselessConversion {
                         );
                     }
                 }
-                if_chain! {
-                    if is_trait_method(cx, e, sym::TryInto) && name.ident.name == sym::try_into;
+                if is_trait_method(cx, e, sym::TryInto) && name.ident.name == sym::try_into
+                    && let a = cx.typeck_results().expr_ty(e)
+                    && let b = cx.typeck_results().expr_ty(&args[0])
+                    && is_type_diagnostic_item(cx, a, sym::Result)
+                    && let ty::Adt(_, substs) = a.kind()
+                    && let Some(a_type) = substs.types().next()
+                    && same_type_and_consts(a_type, b)
+
+                {
+                    span_lint_and_help(
+                        cx,
+                        USELESS_CONVERSION,
+                        e.span,
+                        &format!("useless conversion to the same type: `{}`", b),
+                        None,
+                        "consider removing `.try_into()`",
+                    );
+                }
+            },
+
+            ExprKind::Call(path, args) => {
+                if args.len() == 1
+                    && let ExprKind::Path(ref qpath) = path.kind
+                    && let Some(def_id) = cx.qpath_res(qpath, path.hir_id).opt_def_id()
+                {
                     let a = cx.typeck_results().expr_ty(e);
                     let b = cx.typeck_results().expr_ty(&args[0]);
-                    if is_type_diagnostic_item(cx, a, sym::Result);
-                    if let ty::Adt(_, substs) = a.kind();
-                    if let Some(a_type) = substs.types().next();
-                    if same_type_and_consts(a_type, b);
+                    if match_def_path(cx, def_id, &paths::TRY_FROM)
+                        && is_type_diagnostic_item(cx, a, sym::Result)
+                        && let ty::Adt(_, substs) = a.kind()
+                        && let Some(a_type) = substs.types().next()
+                        && same_type_and_consts(a_type, b)
 
-                    then {
+                    {
+                        let hint = format!("consider removing `{}()`", snippet(cx, path.span, "TryFrom::try_from"));
                         span_lint_and_help(
                             cx,
                             USELESS_CONVERSION,
                             e.span,
                             &format!("useless conversion to the same type: `{}`", b),
                             None,
-                            "consider removing `.try_into()`",
+                            &hint,
                         );
                     }
-                }
-            },
 
-            ExprKind::Call(path, args) => {
-                if_chain! {
-                    if args.len() == 1;
-                    if let ExprKind::Path(ref qpath) = path.kind;
-                    if let Some(def_id) = cx.qpath_res(qpath, path.hir_id).opt_def_id();
-                    then {
-                        let a = cx.typeck_results().expr_ty(e);
-                        let b = cx.typeck_results().expr_ty(&args[0]);
-                        if_chain! {
-                            if match_def_path(cx, def_id, &paths::TRY_FROM);
-                            if is_type_diagnostic_item(cx, a, sym::Result);
-                            if let ty::Adt(_, substs) = a.kind();
-                            if let Some(a_type) = substs.types().next();
-                            if same_type_and_consts(a_type, b);
+                    if match_def_path(cx, def_id, &paths::FROM_FROM)
+                        && same_type_and_consts(a, b)
 
-                            then {
-                                let hint = format!("consider removing `{}()`", snippet(cx, path.span, "TryFrom::try_from"));
-                                span_lint_and_help(
-                                    cx,
-                                    USELESS_CONVERSION,
-                                    e.span,
-                                    &format!("useless conversion to the same type: `{}`", b),
-                                    None,
-                                    &hint,
-                                );
-                            }
-                        }
-
-                        if_chain! {
-                            if match_def_path(cx, def_id, &paths::FROM_FROM);
-                            if same_type_and_consts(a, b);
-
-                            then {
-                                let sugg = Sugg::hir_with_macro_callsite(cx, &args[0], "<expr>").maybe_par();
-                                let sugg_msg =
-                                    format!("consider removing `{}()`", snippet(cx, path.span, "From::from"));
-                                span_lint_and_sugg(
-                                    cx,
-                                    USELESS_CONVERSION,
-                                    e.span,
-                                    &format!("useless conversion to the same type: `{}`", b),
-                                    &sugg_msg,
-                                    sugg.to_string(),
-                                    Applicability::MachineApplicable, // snippet
-                                );
-                            }
-                        }
+                    {
+                        let sugg = Sugg::hir_with_macro_callsite(cx, &args[0], "<expr>").maybe_par();
+                        let sugg_msg =
+                            format!("consider removing `{}()`", snippet(cx, path.span, "From::from"));
+                        span_lint_and_sugg(
+                            cx,
+                            USELESS_CONVERSION,
+                            e.span,
+                            &format!("useless conversion to the same type: `{}`", b),
+                            &sugg_msg,
+                            sugg.to_string(),
+                            Applicability::MachineApplicable, // snippet
+                        );
                     }
                 }
             },

@@ -4,7 +4,6 @@ use clippy_utils::macros::{find_assert_eq_args, first_node_macro_backtrace};
 use clippy_utils::source::snippet;
 use clippy_utils::ty::{implements_trait, is_copy};
 use clippy_utils::{ast_utils::is_useless_with_eq_exprs, eq_expr_value, is_in_test_function};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{def::Res, def_id::DefId, BinOpKind, BorrowKind, Expr, ExprKind, GenericArg, ItemKind, QPath, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -74,24 +73,22 @@ declare_lint_pass!(EqOp => [EQ_OP, OP_REF]);
 impl<'tcx> LateLintPass<'tcx> for EqOp {
     #[expect(clippy::similar_names, clippy::too_many_lines)]
     fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &'tcx Expr<'_>) {
-        if_chain! {
-            if let Some((macro_call, macro_name)) = first_node_macro_backtrace(cx, e).find_map(|macro_call| {
-                let name = cx.tcx.item_name(macro_call.def_id);
-                matches!(name.as_str(), "assert_eq" | "assert_ne" | "debug_assert_eq" | "debug_assert_ne")
-                    .then(|| (macro_call, name))
-            });
-            if let Some((lhs, rhs, _)) = find_assert_eq_args(cx, e, macro_call.expn);
-            if eq_expr_value(cx, lhs, rhs);
-            if macro_call.is_local();
-            if !is_in_test_function(cx.tcx, e.hir_id);
-            then {
-                span_lint(
-                    cx,
-                    EQ_OP,
-                    lhs.span.to(rhs.span),
-                    &format!("identical args used in this `{}!` macro call", macro_name),
-                );
-            }
+        if let Some((macro_call, macro_name)) = first_node_macro_backtrace(cx, e).find_map(|macro_call| {
+            let name = cx.tcx.item_name(macro_call.def_id);
+            matches!(name.as_str(), "assert_eq" | "assert_ne" | "debug_assert_eq" | "debug_assert_ne")
+                .then(|| (macro_call, name))
+        })
+            && let Some((lhs, rhs, _)) = find_assert_eq_args(cx, e, macro_call.expn)
+            && eq_expr_value(cx, lhs, rhs)
+            && macro_call.is_local()
+            && !is_in_test_function(cx.tcx, e.hir_id)
+        {
+            span_lint(
+                cx,
+                EQ_OP,
+                lhs.span.to(rhs.span),
+                &format!("identical args used in this `{}!` macro call", macro_name),
+            );
         }
         if let ExprKind::Binary(op, left, right) = e.kind {
             if e.span.from_expansion() {
@@ -281,41 +278,33 @@ fn in_impl<'tcx>(
     e: &'tcx Expr<'_>,
     bin_op: DefId,
 ) -> Option<(&'tcx rustc_hir::Ty<'tcx>, &'tcx rustc_hir::Ty<'tcx>)> {
-    if_chain! {
-        if let Some(block) = get_enclosing_block(cx, e.hir_id);
-        if let Some(impl_def_id) = cx.tcx.impl_of_method(block.hir_id.owner.to_def_id());
-        let item = cx.tcx.hir().expect_item(impl_def_id.expect_local());
-        if let ItemKind::Impl(item) = &item.kind;
-        if let Some(of_trait) = &item.of_trait;
-        if let Some(seg) = of_trait.path.segments.last();
-        if let Some(Res::Def(_, trait_id)) = seg.res;
-        if trait_id == bin_op;
-        if let Some(generic_args) = seg.args;
-        if let Some(GenericArg::Type(other_ty)) = generic_args.args.last();
-
-        then {
-            Some((item.self_ty, other_ty))
-        }
-        else {
-            None
-        }
+    if let Some(block) = get_enclosing_block(cx, e.hir_id)
+        && let Some(impl_def_id) = cx.tcx.impl_of_method(block.hir_id.owner.to_def_id())
+        && let item = cx.tcx.hir().expect_item(impl_def_id.expect_local())
+        && let ItemKind::Impl(item) = &item.kind
+        && let Some(of_trait) = &item.of_trait
+        && let Some(seg) = of_trait.path.segments.last()
+        && let Some(Res::Def(_, trait_id)) = seg.res
+        && trait_id == bin_op
+        && let Some(generic_args) = seg.args
+        && let Some(GenericArg::Type(other_ty)) = generic_args.args.last()
+    {
+        Some((item.self_ty, other_ty))
+    } else {
+        None
     }
 }
 
 fn are_equal<'tcx>(cx: &LateContext<'tcx>, middle_ty: Ty<'_>, hir_ty: &rustc_hir::Ty<'_>) -> bool {
-    if_chain! {
-        if let ty::Adt(adt_def, _) = middle_ty.kind();
-        if let Some(local_did) = adt_def.did().as_local();
-        let item = cx.tcx.hir().expect_item(local_did);
-        let middle_ty_id = item.def_id.to_def_id();
-        if let TyKind::Path(QPath::Resolved(_, path)) = hir_ty.kind;
-        if let Res::Def(_, hir_ty_id) = path.res;
-
-        then {
-            hir_ty_id == middle_ty_id
-        }
-        else {
-            false
-        }
+    if let ty::Adt(adt_def, _) = middle_ty.kind()
+        && let Some(local_did) = adt_def.did().as_local()
+        && let item = cx.tcx.hir().expect_item(local_did)
+        && let middle_ty_id = item.def_id.to_def_id()
+        && let TyKind::Path(QPath::Resolved(_, path)) = hir_ty.kind
+        && let Res::Def(_, hir_ty_id) = path.res
+    {
+        hir_ty_id == middle_ty_id
+    } else {
+        false
     }
 }

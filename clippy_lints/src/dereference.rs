@@ -367,25 +367,23 @@ impl<'tcx> LateLintPass<'tcx> for Dereferencing {
                 return;
             }
 
-            if_chain! {
-                if !pat.span.from_expansion();
-                if let ty::Ref(_, tam, _) = *cx.typeck_results().pat_ty(pat).kind();
+            if !pat.span.from_expansion()
+                && let ty::Ref(_, tam, _) = *cx.typeck_results().pat_ty(pat).kind()
                 // only lint immutable refs, because borrowed `&mut T` cannot be moved out
-                if let ty::Ref(_, _, Mutability::Not) = *tam.kind();
-                then {
-                    let mut app = Applicability::MachineApplicable;
-                    let snip = snippet_with_context(cx, name.span, pat.span.ctxt(), "..", &mut app).0;
-                    self.current_body = self.current_body.or(cx.enclosing_body);
-                    self.ref_locals.insert(
-                        id,
-                        Some(RefPat {
-                            always_deref: true,
-                            spans: vec![pat.span],
-                            app,
-                            replacements: vec![(pat.span, snip.into())],
-                        }),
-                    );
-                }
+                && let ty::Ref(_, _, Mutability::Not) = *tam.kind()
+            {
+                let mut app = Applicability::MachineApplicable;
+                let snip = snippet_with_context(cx, name.span, pat.span.ctxt(), "..", &mut app).0;
+                self.current_body = self.current_body.or(cx.enclosing_body);
+                self.ref_locals.insert(
+                    id,
+                    Some(RefPat {
+                        always_deref: true,
+                        spans: vec![pat.span],
+                        app,
+                        replacements: vec![(pat.span, snip.into())],
+                    }),
+                );
             }
         }
     }

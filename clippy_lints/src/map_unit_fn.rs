@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::{snippet, snippet_with_applicability, snippet_with_context};
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{iter_input_pats, method_chain_args};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_lint::{LateContext, LateLintPass};
@@ -168,16 +167,14 @@ fn unit_closure<'tcx>(
     cx: &LateContext<'tcx>,
     expr: &hir::Expr<'_>,
 ) -> Option<(&'tcx hir::Param<'tcx>, &'tcx hir::Expr<'tcx>)> {
-    if_chain! {
-        if let hir::ExprKind::Closure(_, decl, inner_expr_id, _, _) = expr.kind;
-        let body = cx.tcx.hir().body(inner_expr_id);
-        let body_expr = &body.value;
-        if decl.inputs.len() == 1;
-        if is_unit_expression(cx, body_expr);
-        if let Some(binding) = iter_input_pats(decl, body).next();
-        then {
-            return Some((binding, body_expr));
-        }
+    if let hir::ExprKind::Closure(_, decl, inner_expr_id, _, _) = expr.kind
+        && let body = cx.tcx.hir().body(inner_expr_id)
+        && let body_expr = &body.value
+        && decl.inputs.len() == 1
+        && is_unit_expression(cx, body_expr)
+        && let Some(binding) = iter_input_pats(decl, body).next()
+    {
+        return Some((binding, body_expr));
     }
     None
 }

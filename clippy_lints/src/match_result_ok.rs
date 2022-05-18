@@ -3,7 +3,6 @@ use clippy_utils::higher;
 use clippy_utils::method_chain_args;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::is_type_diagnostic_item;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, PatKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
@@ -57,34 +56,32 @@ impl<'tcx> LateLintPass<'tcx> for MatchResultOk {
                 return;
             };
 
-        if_chain! {
-            if let ExprKind::MethodCall(ok_path, [ref result_types_0, ..], _) = let_expr.kind; //check is expr.ok() has type Result<T,E>.ok(, _)
-            if let PatKind::TupleStruct(QPath::Resolved(_, x), y, _)  = let_pat.kind; //get operation
-            if method_chain_args(let_expr, &["ok"]).is_some(); //test to see if using ok() method use std::marker::Sized;
-            if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(result_types_0), sym::Result);
-            if rustc_hir_pretty::to_string(rustc_hir_pretty::NO_ANN, |s| s.print_path(x, false)) == "Some";
+        if let ExprKind::MethodCall(ok_path, [ref result_types_0, ..], _) = let_expr.kind //check is expr.ok() has type Result<T,E>.ok(, _)
+            && let PatKind::TupleStruct(QPath::Resolved(_, x), y, _)  = let_pat.kind //get operation
+            && method_chain_args(let_expr, &["ok"]).is_some() //test to see if using ok() method use std::marker::Sized;
+            && is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(result_types_0), sym::Result)
+            && rustc_hir_pretty::to_string(rustc_hir_pretty::NO_ANN, |s| s.print_path(x, false)) == "Some"
 
-            then {
+        {
 
-                let mut applicability = Applicability::MachineApplicable;
-                let some_expr_string = snippet_with_applicability(cx, y[0].span, "", &mut applicability);
-                let trimmed_ok = snippet_with_applicability(cx, let_expr.span.until(ok_path.ident.span), "", &mut applicability);
-                let sugg = format!(
-                    "{} let Ok({}) = {}",
-                    ifwhile,
-                    some_expr_string,
-                    trimmed_ok.trim().trim_end_matches('.'),
-                );
-                span_lint_and_sugg(
-                    cx,
-                    MATCH_RESULT_OK,
-                    expr.span.with_hi(let_expr.span.hi()),
-                    "matching on `Some` with `ok()` is redundant",
-                    &format!("consider matching on `Ok({})` and removing the call to `ok` instead", some_expr_string),
-                    sugg,
-                    applicability,
-                );
-            }
+            let mut applicability = Applicability::MachineApplicable;
+            let some_expr_string = snippet_with_applicability(cx, y[0].span, "", &mut applicability);
+            let trimmed_ok = snippet_with_applicability(cx, let_expr.span.until(ok_path.ident.span), "", &mut applicability);
+            let sugg = format!(
+                "{} let Ok({}) = {}",
+                ifwhile,
+                some_expr_string,
+                trimmed_ok.trim().trim_end_matches('.'),
+            );
+            span_lint_and_sugg(
+                cx,
+                MATCH_RESULT_OK,
+                expr.span.with_hi(let_expr.span.hi()),
+                "matching on `Some` with `ok()` is redundant",
+                &format!("consider matching on `Ok({})` and removing the call to `ok` instead", some_expr_string),
+                sugg,
+                applicability,
+            );
         }
     }
 }

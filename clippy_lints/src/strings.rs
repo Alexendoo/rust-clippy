@@ -3,7 +3,6 @@ use clippy_utils::source::{snippet, snippet_with_applicability};
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{get_parent_expr, is_lint_allowed, match_function_call, method_calls, paths};
 use clippy_utils::{peel_blocks, SpanlessEq};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::def_id::DefId;
 use rustc_hir::{BinOpKind, BorrowKind, Expr, ExprKind, LangItem, QPath};
@@ -244,113 +243,107 @@ impl<'tcx> LateLintPass<'tcx> for StringLitAsBytes {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &'tcx Expr<'_>) {
         use rustc_ast::LitKind;
 
-        if_chain! {
-            // Find std::str::converts::from_utf8
-            if let Some(args) = match_function_call(cx, e, &paths::STR_FROM_UTF8);
+        // Find std::str::converts::from_utf8
+        if let Some(args) = match_function_call(cx, e, &paths::STR_FROM_UTF8)
 
             // Find string::as_bytes
-            if let ExprKind::AddrOf(BorrowKind::Ref, _, args) = args[0].kind;
-            if let ExprKind::Index(left, right) = args.kind;
-            let (method_names, expressions, _) = method_calls(left, 1);
-            if method_names.len() == 1;
-            if expressions.len() == 1;
-            if expressions[0].len() == 1;
-            if method_names[0] == sym!(as_bytes);
+            && let ExprKind::AddrOf(BorrowKind::Ref, _, args) = args[0].kind
+            && let ExprKind::Index(left, right) = args.kind
+            && let (method_names, expressions, _) = method_calls(left, 1)
+            && method_names.len() == 1
+            && expressions.len() == 1
+            && expressions[0].len() == 1
+            && method_names[0] == sym!(as_bytes)
 
             // Check for slicer
-            if let ExprKind::Struct(QPath::LangItem(LangItem::Range, ..), _, _) = right.kind;
+            && let ExprKind::Struct(QPath::LangItem(LangItem::Range, ..), _, _) = right.kind
 
-            then {
-                let mut applicability = Applicability::MachineApplicable;
-                let string_expression = &expressions[0][0];
+        {
+            let mut applicability = Applicability::MachineApplicable;
+            let string_expression = &expressions[0][0];
 
-                let snippet_app = snippet_with_applicability(
-                    cx,
-                    string_expression.span, "..",
-                    &mut applicability,
-                );
+            let snippet_app = snippet_with_applicability(
+                cx,
+                string_expression.span, "..",
+                &mut applicability,
+            );
 
-                span_lint_and_sugg(
-                    cx,
-                    STRING_FROM_UTF8_AS_BYTES,
-                    e.span,
-                    "calling a slice of `as_bytes()` with `from_utf8` should be not necessary",
-                    "try",
-                    format!("Some(&{}[{}])", snippet_app, snippet(cx, right.span, "..")),
-                    applicability
-                )
-            }
+            span_lint_and_sugg(
+                cx,
+                STRING_FROM_UTF8_AS_BYTES,
+                e.span,
+                "calling a slice of `as_bytes()` with `from_utf8` should be not necessary",
+                "try",
+                format!("Some(&{}[{}])", snippet_app, snippet(cx, right.span, "..")),
+                applicability
+            );
         }
 
-        if_chain! {
-            if let ExprKind::MethodCall(path, args, _) = &e.kind;
-            if path.ident.name == sym!(as_bytes);
-            if let ExprKind::Lit(lit) = &args[0].kind;
-            if let LitKind::Str(lit_content, _) = &lit.node;
-            then {
-                let callsite = snippet(cx, args[0].span.source_callsite(), r#""foo""#);
-                let mut applicability = Applicability::MachineApplicable;
-                if callsite.starts_with("include_str!") {
-                    span_lint_and_sugg(
-                        cx,
-                        STRING_LIT_AS_BYTES,
-                        e.span,
-                        "calling `as_bytes()` on `include_str!(..)`",
-                        "consider using `include_bytes!(..)` instead",
-                        snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability).replacen(
-                            "include_str",
-                            "include_bytes",
-                            1,
-                        ),
-                        applicability,
-                    );
-                } else if lit_content.as_str().is_ascii()
-                    && lit_content.as_str().len() <= MAX_LENGTH_BYTE_STRING_LIT
-                    && !args[0].span.from_expansion()
-                {
-                    span_lint_and_sugg(
-                        cx,
-                        STRING_LIT_AS_BYTES,
-                        e.span,
-                        "calling `as_bytes()` on a string literal",
-                        "consider using a byte string literal instead",
-                        format!(
-                            "b{}",
-                            snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability)
-                        ),
-                        applicability,
-                    );
-                }
-            }
-        }
-
-        if_chain! {
-            if let ExprKind::MethodCall(path, [recv], _) = &e.kind;
-            if path.ident.name == sym!(into_bytes);
-            if let ExprKind::MethodCall(path, [recv], _) = &recv.kind;
-            if matches!(path.ident.name.as_str(), "to_owned" | "to_string");
-            if let ExprKind::Lit(lit) = &recv.kind;
-            if let LitKind::Str(lit_content, _) = &lit.node;
-
-            if lit_content.as_str().is_ascii();
-            if lit_content.as_str().len() <= MAX_LENGTH_BYTE_STRING_LIT;
-            if !recv.span.from_expansion();
-            then {
-                let mut applicability = Applicability::MachineApplicable;
-
+        if let ExprKind::MethodCall(path, args, _) = &e.kind
+            && path.ident.name == sym!(as_bytes)
+            && let ExprKind::Lit(lit) = &args[0].kind
+            && let LitKind::Str(lit_content, _) = &lit.node
+        {
+            let callsite = snippet(cx, args[0].span.source_callsite(), r#""foo""#);
+            let mut applicability = Applicability::MachineApplicable;
+            if callsite.starts_with("include_str!") {
                 span_lint_and_sugg(
                     cx,
                     STRING_LIT_AS_BYTES,
                     e.span,
-                    "calling `into_bytes()` on a string literal",
+                    "calling `as_bytes()` on `include_str!(..)`",
+                    "consider using `include_bytes!(..)` instead",
+                    snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability).replacen(
+                        "include_str",
+                        "include_bytes",
+                        1,
+                    ),
+                    applicability,
+                );
+            } else if lit_content.as_str().is_ascii()
+                && lit_content.as_str().len() <= MAX_LENGTH_BYTE_STRING_LIT
+                && !args[0].span.from_expansion()
+            {
+                span_lint_and_sugg(
+                    cx,
+                    STRING_LIT_AS_BYTES,
+                    e.span,
+                    "calling `as_bytes()` on a string literal",
                     "consider using a byte string literal instead",
                     format!(
-                        "b{}.to_vec()",
-                        snippet_with_applicability(cx, recv.span, r#""..""#, &mut applicability)
+                        "b{}",
+                        snippet_with_applicability(cx, args[0].span, r#""foo""#, &mut applicability)
                     ),
                     applicability,
                 );
             }
+        }
+
+        if let ExprKind::MethodCall(path, [recv], _) = &e.kind
+            && path.ident.name == sym!(into_bytes)
+            && let ExprKind::MethodCall(path, [recv], _) = &recv.kind
+            && matches!(path.ident.name.as_str(), "to_owned" | "to_string")
+            && let ExprKind::Lit(lit) = &recv.kind
+            && let LitKind::Str(lit_content, _) = &lit.node
+
+            && lit_content.as_str().is_ascii()
+            && lit_content.as_str().len() <= MAX_LENGTH_BYTE_STRING_LIT
+            && !recv.span.from_expansion()
+        {
+            let mut applicability = Applicability::MachineApplicable;
+
+            span_lint_and_sugg(
+                cx,
+                STRING_LIT_AS_BYTES,
+                e.span,
+                "calling `into_bytes()` on a string literal",
+                "consider using a byte string literal instead",
+                format!(
+                    "b{}.to_vec()",
+                    snippet_with_applicability(cx, recv.span, r#""..""#, &mut applicability)
+                ),
+                applicability,
+            );
         }
     }
 }
@@ -384,22 +377,20 @@ declare_lint_pass!(StrToString => [STR_TO_STRING]);
 
 impl<'tcx> LateLintPass<'tcx> for StrToString {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &Expr<'_>) {
-        if_chain! {
-            if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind;
-            if path.ident.name == sym!(to_string);
-            let ty = cx.typeck_results().expr_ty(self_arg);
-            if let ty::Ref(_, ty, ..) = ty.kind();
-            if *ty.kind() == ty::Str;
-            then {
-                span_lint_and_help(
-                    cx,
-                    STR_TO_STRING,
-                    expr.span,
-                    "`to_string()` called on a `&str`",
-                    None,
-                    "consider using `.to_owned()`",
-                );
-            }
+        if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind
+            && path.ident.name == sym!(to_string)
+            && let ty = cx.typeck_results().expr_ty(self_arg)
+            && let ty::Ref(_, ty, ..) = ty.kind()
+            && *ty.kind() == ty::Str
+        {
+            span_lint_and_help(
+                cx,
+                STR_TO_STRING,
+                expr.span,
+                "`to_string()` called on a `&str`",
+                None,
+                "consider using `.to_owned()`",
+            );
         }
     }
 }
@@ -434,21 +425,19 @@ declare_lint_pass!(StringToString => [STRING_TO_STRING]);
 
 impl<'tcx> LateLintPass<'tcx> for StringToString {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &Expr<'_>) {
-        if_chain! {
-            if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind;
-            if path.ident.name == sym!(to_string);
-            let ty = cx.typeck_results().expr_ty(self_arg);
-            if is_type_diagnostic_item(cx, ty, sym::String);
-            then {
-                span_lint_and_help(
-                    cx,
-                    STRING_TO_STRING,
-                    expr.span,
-                    "`to_string()` called on a `String`",
-                    None,
-                    "consider using `.clone()`",
-                );
-            }
+        if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind
+            && path.ident.name == sym!(to_string)
+            && let ty = cx.typeck_results().expr_ty(self_arg)
+            && is_type_diagnostic_item(cx, ty, sym::String)
+        {
+            span_lint_and_help(
+                cx,
+                STRING_TO_STRING,
+                expr.span,
+                "`to_string()` called on a `String`",
+                None,
+                "consider using `.clone()`",
+            );
         }
     }
 }
@@ -478,26 +467,24 @@ declare_lint_pass!(TrimSplitWhitespace => [TRIM_SPLIT_WHITESPACE]);
 impl<'tcx> LateLintPass<'tcx> for TrimSplitWhitespace {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &Expr<'_>) {
         let tyckres = cx.typeck_results();
-        if_chain! {
-            if let ExprKind::MethodCall(path, [split_recv], split_ws_span) = expr.kind;
-            if path.ident.name == sym!(split_whitespace);
-            if let Some(split_ws_def_id) = tyckres.type_dependent_def_id(expr.hir_id);
-            if cx.tcx.is_diagnostic_item(sym::str_split_whitespace, split_ws_def_id);
-            if let ExprKind::MethodCall(path, [_trim_recv], trim_span) = split_recv.kind;
-            if let trim_fn_name @ ("trim" | "trim_start" | "trim_end") = path.ident.name.as_str();
-            if let Some(trim_def_id) = tyckres.type_dependent_def_id(split_recv.hir_id);
-            if is_one_of_trim_diagnostic_items(cx, trim_def_id);
-            then {
-                span_lint_and_sugg(
-                    cx,
-                    TRIM_SPLIT_WHITESPACE,
-                    trim_span.with_hi(split_ws_span.lo()),
-                    &format!("found call to `str::{}` before `str::split_whitespace`", trim_fn_name),
-                    &format!("remove `{}()`", trim_fn_name),
-                    String::new(),
-                    Applicability::MachineApplicable,
-                );
-            }
+        if let ExprKind::MethodCall(path, [split_recv], split_ws_span) = expr.kind
+            && path.ident.name == sym!(split_whitespace)
+            && let Some(split_ws_def_id) = tyckres.type_dependent_def_id(expr.hir_id)
+            && cx.tcx.is_diagnostic_item(sym::str_split_whitespace, split_ws_def_id)
+            && let ExprKind::MethodCall(path, [_trim_recv], trim_span) = split_recv.kind
+            && let trim_fn_name @ ("trim" | "trim_start" | "trim_end") = path.ident.name.as_str()
+            && let Some(trim_def_id) = tyckres.type_dependent_def_id(split_recv.hir_id)
+            && is_one_of_trim_diagnostic_items(cx, trim_def_id)
+        {
+            span_lint_and_sugg(
+                cx,
+                TRIM_SPLIT_WHITESPACE,
+                trim_span.with_hi(split_ws_span.lo()),
+                &format!("found call to `str::{}` before `str::split_whitespace`", trim_fn_name),
+                &format!("remove `{}()`", trim_fn_name),
+                String::new(),
+                Applicability::MachineApplicable,
+            );
         }
     }
 }

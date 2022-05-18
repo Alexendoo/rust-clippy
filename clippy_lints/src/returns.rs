@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::{span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::source::snippet_opt;
 use clippy_utils::{fn_def_id, path_to_local_id};
-use if_chain::if_chain;
 use rustc_ast::ast::Attribute;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::{walk_expr, FnKind, Visitor};
@@ -80,46 +79,44 @@ declare_lint_pass!(Return => [LET_AND_RETURN, NEEDLESS_RETURN]);
 impl<'tcx> LateLintPass<'tcx> for Return {
     fn check_block(&mut self, cx: &LateContext<'tcx>, block: &'tcx Block<'_>) {
         // we need both a let-binding stmt and an expr
-        if_chain! {
-            if let Some(retexpr) = block.expr;
-            if let Some(stmt) = block.stmts.iter().last();
-            if let StmtKind::Local(local) = &stmt.kind;
-            if local.ty.is_none();
-            if cx.tcx.hir().attrs(local.hir_id).is_empty();
-            if let Some(initexpr) = &local.init;
-            if let PatKind::Binding(_, local_id, _, _) = local.pat.kind;
-            if path_to_local_id(retexpr, local_id);
-            if !last_statement_borrows(cx, initexpr);
-            if !in_external_macro(cx.sess(), initexpr.span);
-            if !in_external_macro(cx.sess(), retexpr.span);
-            if !local.span.from_expansion();
-            then {
-                span_lint_and_then(
-                    cx,
-                    LET_AND_RETURN,
-                    retexpr.span,
-                    "returning the result of a `let` binding from a block",
-                    |err| {
-                        err.span_label(local.span, "unnecessary `let` binding");
+        if let Some(retexpr) = block.expr
+            && let Some(stmt) = block.stmts.iter().last()
+            && let StmtKind::Local(local) = &stmt.kind
+            && local.ty.is_none()
+            && cx.tcx.hir().attrs(local.hir_id).is_empty()
+            && let Some(initexpr) = &local.init
+            && let PatKind::Binding(_, local_id, _, _) = local.pat.kind
+            && path_to_local_id(retexpr, local_id)
+            && !last_statement_borrows(cx, initexpr)
+            && !in_external_macro(cx.sess(), initexpr.span)
+            && !in_external_macro(cx.sess(), retexpr.span)
+            && !local.span.from_expansion()
+        {
+            span_lint_and_then(
+                cx,
+                LET_AND_RETURN,
+                retexpr.span,
+                "returning the result of a `let` binding from a block",
+                |err| {
+                    err.span_label(local.span, "unnecessary `let` binding");
 
-                        if let Some(mut snippet) = snippet_opt(cx, initexpr.span) {
-                            if !cx.typeck_results().expr_adjustments(retexpr).is_empty() {
-                                snippet.push_str(" as _");
-                            }
-                            err.multipart_suggestion(
-                                "return the expression directly",
-                                vec![
-                                    (local.span, String::new()),
-                                    (retexpr.span, snippet),
-                                ],
-                                Applicability::MachineApplicable,
-                            );
-                        } else {
-                            err.span_help(initexpr.span, "this expression can be directly returned");
+                    if let Some(mut snippet) = snippet_opt(cx, initexpr.span) {
+                        if !cx.typeck_results().expr_adjustments(retexpr).is_empty() {
+                            snippet.push_str(" as _");
                         }
-                    },
-                );
-            }
+                        err.multipart_suggestion(
+                            "return the expression directly",
+                            vec![
+                                (local.span, String::new()),
+                                (retexpr.span, snippet),
+                            ],
+                            Applicability::MachineApplicable,
+                        );
+                    } else {
+                        err.span_help(initexpr.span, "this expression can be directly returned");
+                    }
+                },
+            );
         }
     }
 

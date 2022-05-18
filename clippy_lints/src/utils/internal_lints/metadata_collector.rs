@@ -12,7 +12,6 @@ use crate::utils::internal_lints::{extract_clippy_version_value, is_lint_ref_typ
 use clippy_utils::diagnostics::span_lint;
 use clippy_utils::ty::{match_type, walk_ptrs_ty_depth};
 use clippy_utils::{last_path_segment, match_def_path, match_function_call, match_path, paths};
-use if_chain::if_chain;
 use rustc_ast as ast;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::{
@@ -352,25 +351,23 @@ fn collect_configs() -> Vec<ClippyConfiguration> {
 /// ```
 fn parse_config_field_doc(doc_comment: &str) -> Option<(Vec<String>, String)> {
     const DOC_START: &str = " Lint: ";
-    if_chain! {
-        if doc_comment.starts_with(DOC_START);
-        if let Some(split_pos) = doc_comment.find('.');
-        then {
-            let mut doc_comment = doc_comment.to_string();
-            let mut documentation = doc_comment.split_off(split_pos);
+    if doc_comment.starts_with(DOC_START)
+        && let Some(split_pos) = doc_comment.find('.')
+    {
+        let mut doc_comment = doc_comment.to_string();
+        let mut documentation = doc_comment.split_off(split_pos);
 
-            // Extract lints
-            doc_comment.make_ascii_lowercase();
-            let lints: Vec<String> = doc_comment.split_off(DOC_START.len()).split(", ").map(str::to_string).collect();
+        // Extract lints
+        doc_comment.make_ascii_lowercase();
+        let lints: Vec<String> = doc_comment.split_off(DOC_START.len()).split(", ").map(str::to_string).collect();
 
-            // Format documentation correctly
-            // split off leading `.` from lint name list and indent for correct formatting
-            documentation = documentation.trim_start_matches('.').trim().replace("\n ", "\n    ");
+        // Format documentation correctly
+        // split off leading `.` from lint name list and indent for correct formatting
+        documentation = documentation.trim_start_matches('.').trim().replace("\n ", "\n    ");
 
-            Some((lints, documentation))
-        } else {
-            None
-        }
+        Some((lints, documentation))
+    } else {
+        None
     }
 }
 
@@ -409,51 +406,48 @@ impl<'hir> LateLintPass<'hir> for MetadataCollector {
     fn check_item(&mut self, cx: &LateContext<'hir>, item: &'hir Item<'_>) {
         if let ItemKind::Static(ty, Mutability::Not, _) = item.kind {
             // Normal lint
-            if_chain! {
-                // item validation
-                if is_lint_ref_type(cx, ty);
+            //
+            // item validation
+            if is_lint_ref_type(cx, ty)
                 // blacklist check
-                let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase();
-                if !BLACK_LISTED_LINTS.contains(&lint_name.as_str());
+                && let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase()
+                && !BLACK_LISTED_LINTS.contains(&lint_name.as_str())
                 // metadata extraction
-                if let Some((group, level)) = get_lint_group_and_level_or_lint(cx, &lint_name, item);
-                if let Some(mut docs) = extract_attr_docs_or_lint(cx, item);
-                then {
-                    if let Some(configuration_section) = self.get_lint_configs(&lint_name) {
-                        docs.push_str(&configuration_section);
-                    }
-                    let version = get_lint_version(cx, item);
-
-                    self.lints.push(LintMetadata::new(
-                        lint_name,
-                        SerializableSpan::from_item(cx, item),
-                        group,
-                        level,
-                        version,
-                        docs,
-                    ));
+                && let Some((group, level)) = get_lint_group_and_level_or_lint(cx, &lint_name, item)
+                && let Some(mut docs) = extract_attr_docs_or_lint(cx, item)
+            {
+                if let Some(configuration_section) = self.get_lint_configs(&lint_name) {
+                    docs.push_str(&configuration_section);
                 }
+                let version = get_lint_version(cx, item);
+
+                self.lints.push(LintMetadata::new(
+                    lint_name,
+                    SerializableSpan::from_item(cx, item),
+                    group,
+                    level,
+                    version,
+                    docs,
+                ));
             }
 
-            if_chain! {
-                if is_deprecated_lint(cx, ty);
+            if is_deprecated_lint(cx, ty)
                 // blacklist check
-                let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase();
-                if !BLACK_LISTED_LINTS.contains(&lint_name.as_str());
+                && let lint_name = sym_to_string(item.ident.name).to_ascii_lowercase()
+                && !BLACK_LISTED_LINTS.contains(&lint_name.as_str())
                 // Metadata the little we can get from a deprecated lint
-                if let Some(docs) = extract_attr_docs_or_lint(cx, item);
-                then {
-                    let version = get_lint_version(cx, item);
+                && let Some(docs) = extract_attr_docs_or_lint(cx, item)
+            {
+                let version = get_lint_version(cx, item);
 
-                    self.lints.push(LintMetadata::new(
-                        lint_name,
-                        SerializableSpan::from_item(cx, item),
-                        DEPRECATED_LINT_GROUP_STR.to_string(),
-                        DEPRECATED_LINT_LEVEL,
-                        version,
-                        docs,
-                    ));
-                }
+                self.lints.push(LintMetadata::new(
+                    lint_name,
+                    SerializableSpan::from_item(cx, item),
+                    DEPRECATED_LINT_GROUP_STR.to_string(),
+                    DEPRECATED_LINT_LEVEL,
+                    version,
+                    docs,
+                ));
             }
         }
     }
@@ -749,20 +743,18 @@ impl<'a, 'hir> intravisit::Visitor<'hir> for LintResolver<'a, 'hir> {
     }
 
     fn visit_expr(&mut self, expr: &'hir hir::Expr<'hir>) {
-        if_chain! {
-            if let ExprKind::Path(qpath) = &expr.kind;
-            if let QPath::Resolved(_, path) = qpath;
+        if let ExprKind::Path(qpath) = &expr.kind
+            && let QPath::Resolved(_, path) = qpath
 
-            let (expr_ty, _) = walk_ptrs_ty_depth(self.cx.typeck_results().expr_ty(expr));
-            if match_type(self.cx, expr_ty, &paths::LINT);
-            then {
-                if let hir::def::Res::Def(DefKind::Static(..), _) = path.res {
-                    let lint_name = last_path_segment(qpath).ident.name;
-                    self.lints.push(sym_to_string(lint_name).to_ascii_lowercase());
-                } else if let Some(local) = get_parent_local(self.cx, expr) {
-                    if let Some(local_init) = local.init {
-                        intravisit::walk_expr(self, local_init);
-                    }
+            && let (expr_ty, _) = walk_ptrs_ty_depth(self.cx.typeck_results().expr_ty(expr))
+            && match_type(self.cx, expr_ty, &paths::LINT)
+        {
+            if let hir::def::Res::Def(DefKind::Static(..), _) = path.res {
+                let lint_name = last_path_segment(qpath).ident.name;
+                self.lints.push(sym_to_string(lint_name).to_ascii_lowercase());
+            } else if let Some(local) = get_parent_local(self.cx, expr) {
+                if let Some(local_init) = local.init {
+                    intravisit::walk_expr(self, local_init);
                 }
             }
         }
@@ -814,13 +806,11 @@ impl<'a, 'hir> intravisit::Visitor<'hir> for ApplicabilityResolver<'a, 'hir> {
     fn visit_expr(&mut self, expr: &'hir hir::Expr<'hir>) {
         let (expr_ty, _) = walk_ptrs_ty_depth(self.cx.typeck_results().expr_ty(expr));
 
-        if_chain! {
-            if match_type(self.cx, expr_ty, &paths::APPLICABILITY);
-            if let Some(local) = get_parent_local(self.cx, expr);
-            if let Some(local_init) = local.init;
-            then {
-                intravisit::walk_expr(self, local_init);
-            }
+        if match_type(self.cx, expr_ty, &paths::APPLICABILITY)
+            && let Some(local) = get_parent_local(self.cx, expr)
+            && let Some(local_init) = local.init
+        {
+            intravisit::walk_expr(self, local_init);
         };
 
         intravisit::walk_expr(self, expr);

@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::macros::{root_macro_call_first_node, FormatArgsExpn};
 use clippy_utils::source::{snippet_opt, snippet_with_applicability};
 use clippy_utils::sugg::Sugg;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -43,15 +42,13 @@ declare_lint_pass!(UselessFormat => [USELESS_FORMAT]);
 
 impl<'tcx> LateLintPass<'tcx> for UselessFormat {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        let (format_args, call_site) = if_chain! {
-            if let Some(macro_call) = root_macro_call_first_node(cx, expr);
-            if cx.tcx.is_diagnostic_item(sym::format_macro, macro_call.def_id);
-            if let Some(format_args) = FormatArgsExpn::find_nested(cx, expr, macro_call.expn);
-            then {
-                (format_args, macro_call.span)
-            } else {
-                return
-            }
+        let (format_args, call_site) = if let Some(macro_call) = root_macro_call_first_node(cx, expr)
+            && cx.tcx.is_diagnostic_item(sym::format_macro, macro_call.def_id)
+            && let Some(format_args) = FormatArgsExpn::find_nested(cx, expr, macro_call.expn)
+        {
+            (format_args, macro_call.span)
+        } else {
+            return
         };
 
         let mut applicability = Applicability::MachineApplicable;
@@ -69,44 +66,42 @@ impl<'tcx> LateLintPass<'tcx> for UselessFormat {
                 [..] => {},
             }
         } else if let [value] = *format_args.value_args {
-            if_chain! {
-                if format_args.format_string_parts == [kw::Empty];
-                if match cx.typeck_results().expr_ty(value).peel_refs().kind() {
+            if format_args.format_string_parts == [kw::Empty]
+                && match cx.typeck_results().expr_ty(value).peel_refs().kind() {
                     ty::Adt(adt, _) => cx.tcx.is_diagnostic_item(sym::String, adt.did()),
                     ty::Str => true,
                     _ => false,
-                };
-                if let Some(args) = format_args.args();
-                if args.iter().all(|arg| arg.format_trait == sym::Display && !arg.has_string_formatting());
-                then {
-                    let is_new_string = match value.kind {
-                        ExprKind::Binary(..) => true,
-                        ExprKind::MethodCall(path, ..) => path.ident.name.as_str() == "to_string",
-                        _ => false,
-                    };
-                    let sugg = if format_args.format_string_span.contains(value.span) {
-                        // Implicit argument. e.g. `format!("{x}")` span points to `{x}`
-                        let spdata = value.span.data();
-                        let span = Span::new(
-                            spdata.lo + BytePos(1),
-                            spdata.hi - BytePos(1),
-                            spdata.ctxt,
-                            spdata.parent
-                        );
-                        let snip = snippet_with_applicability(cx, span, "..", &mut applicability);
-                        if is_new_string {
-                            snip.into()
-                        } else {
-                            format!("{snip}.to_string()")
-                        }
-                    } else if is_new_string {
-                        snippet_with_applicability(cx, value.span, "..", &mut applicability).into_owned()
-                    } else {
-                        let sugg = Sugg::hir_with_applicability(cx, value, "<arg>", &mut applicability);
-                        format!("{}.to_string()", sugg.maybe_par())
-                    };
-                    span_useless_format(cx, call_site, sugg, applicability);
                 }
+                && let Some(args) = format_args.args()
+                && args.iter().all(|arg| arg.format_trait == sym::Display && !arg.has_string_formatting())
+            {
+                let is_new_string = match value.kind {
+                    ExprKind::Binary(..) => true,
+                    ExprKind::MethodCall(path, ..) => path.ident.name.as_str() == "to_string",
+                    _ => false,
+                };
+                let sugg = if format_args.format_string_span.contains(value.span) {
+                    // Implicit argument. e.g. `format!("{x}")` span points to `{x}`
+                    let spdata = value.span.data();
+                    let span = Span::new(
+                        spdata.lo + BytePos(1),
+                        spdata.hi - BytePos(1),
+                        spdata.ctxt,
+                        spdata.parent
+                    );
+                    let snip = snippet_with_applicability(cx, span, "..", &mut applicability);
+                    if is_new_string {
+                        snip.into()
+                    } else {
+                        format!("{snip}.to_string()")
+                    }
+                } else if is_new_string {
+                    snippet_with_applicability(cx, value.span, "..", &mut applicability).into_owned()
+                } else {
+                    let sugg = Sugg::hir_with_applicability(cx, value, "<arg>", &mut applicability);
+                    format!("{}.to_string()", sugg.maybe_par())
+                };
+                span_useless_format(cx, call_site, sugg, applicability);
             }
         };
     }

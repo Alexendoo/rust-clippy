@@ -56,23 +56,21 @@ enum CaseMethod {
 
 impl<'tcx> LateLintPass<'tcx> for MatchStrCaseMismatch {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            if !in_external_macro(cx.tcx.sess, expr.span);
-            if let ExprKind::Match(match_expr, arms, MatchSource::Normal) = expr.kind;
-            if let ty::Ref(_, ty, _) = cx.typeck_results().expr_ty(match_expr).kind();
-            if let ty::Str = ty.kind();
-            then {
-                let mut visitor = MatchExprVisitor {
-                    cx,
-                    case_method: None,
-                };
+        if !in_external_macro(cx.tcx.sess, expr.span)
+            && let ExprKind::Match(match_expr, arms, MatchSource::Normal) = expr.kind
+            && let ty::Ref(_, ty, _) = cx.typeck_results().expr_ty(match_expr).kind()
+            && let ty::Str = ty.kind()
+        {
+            let mut visitor = MatchExprVisitor {
+                cx,
+                case_method: None,
+            };
 
-                visitor.visit_expr(match_expr);
+            visitor.visit_expr(match_expr);
 
-                if let Some(case_method) = visitor.case_method {
-                    if let Some((bad_case_span, bad_case_sym)) = verify_case(&case_method, arms) {
-                        lint(cx, &case_method, bad_case_span, bad_case_sym.as_str());
-                    }
+            if let Some(case_method) = visitor.case_method {
+                if let Some((bad_case_span, bad_case_sym)) = verify_case(&case_method, arms) {
+                    lint(cx, &case_method, bad_case_span, bad_case_sym.as_str());
                 }
             }
         }
@@ -127,17 +125,15 @@ fn verify_case<'a>(case_method: &'a CaseMethod, arms: &'a [Arm<'_>]) -> Option<(
     };
 
     for arm in arms {
-        if_chain! {
-            if let PatKind::Lit(Expr {
+        if let PatKind::Lit(Expr {
                                 kind: ExprKind::Lit(lit),
                                 ..
-                            }) = arm.pat.kind;
-            if let LitKind::Str(symbol, _) = lit.node;
-            let input = symbol.as_str();
-            if !case_check(input);
-            then {
-                return Some((lit.span, symbol));
-            }
+                            }) = arm.pat.kind
+            && let LitKind::Str(symbol, _) = lit.node
+            && let input = symbol.as_str()
+            && !case_check(input)
+        {
+            return Some((lit.span, symbol));
         }
     }
 

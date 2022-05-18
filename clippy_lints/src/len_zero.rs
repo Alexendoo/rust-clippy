@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::{span_lint, span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::{get_item_name, get_parent_as_impl, is_lint_allowed};
-use if_chain::if_chain;
 use rustc_ast::ast::LitKind;
 use rustc_errors::Applicability;
 use rustc_hir::def_id::DefIdSet;
@@ -130,33 +129,31 @@ impl<'tcx> LateLintPass<'tcx> for LenZero {
     }
 
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx ImplItem<'_>) {
-        if_chain! {
-            if item.ident.name == sym::len;
-            if let ImplItemKind::Fn(sig, _) = &item.kind;
-            if sig.decl.implicit_self.has_implicit_self();
-            if cx.access_levels.is_exported(item.def_id);
-            if matches!(sig.decl.output, FnRetTy::Return(_));
-            if let Some(imp) = get_parent_as_impl(cx.tcx, item.hir_id());
-            if imp.of_trait.is_none();
-            if let TyKind::Path(ty_path) = &imp.self_ty.kind;
-            if let Some(ty_id) = cx.qpath_res(ty_path, imp.self_ty.hir_id).opt_def_id();
-            if let Some(local_id) = ty_id.as_local();
-            let ty_hir_id = cx.tcx.hir().local_def_id_to_hir_id(local_id);
-            if !is_lint_allowed(cx, LEN_WITHOUT_IS_EMPTY, ty_hir_id);
-            if let Some(output) = parse_len_output(cx, cx.tcx.fn_sig(item.def_id).skip_binder());
-            then {
-                let (name, kind) = match cx.tcx.hir().find(ty_hir_id) {
-                    Some(Node::ForeignItem(x)) => (x.ident.name, "extern type"),
-                    Some(Node::Item(x)) => match x.kind {
-                        ItemKind::Struct(..) => (x.ident.name, "struct"),
-                        ItemKind::Enum(..) => (x.ident.name, "enum"),
-                        ItemKind::Union(..) => (x.ident.name, "union"),
-                        _ => (x.ident.name, "type"),
-                    }
-                    _ => return,
-                };
-                check_for_is_empty(cx, sig.span, sig.decl.implicit_self, output, ty_id, name, kind)
-            }
+        if item.ident.name == sym::len
+            && let ImplItemKind::Fn(sig, _) = &item.kind
+            && sig.decl.implicit_self.has_implicit_self()
+            && cx.access_levels.is_exported(item.def_id)
+            && matches!(sig.decl.output, FnRetTy::Return(_))
+            && let Some(imp) = get_parent_as_impl(cx.tcx, item.hir_id())
+            && imp.of_trait.is_none()
+            && let TyKind::Path(ty_path) = &imp.self_ty.kind
+            && let Some(ty_id) = cx.qpath_res(ty_path, imp.self_ty.hir_id).opt_def_id()
+            && let Some(local_id) = ty_id.as_local()
+            && let ty_hir_id = cx.tcx.hir().local_def_id_to_hir_id(local_id)
+            && !is_lint_allowed(cx, LEN_WITHOUT_IS_EMPTY, ty_hir_id)
+            && let Some(output) = parse_len_output(cx, cx.tcx.fn_sig(item.def_id).skip_binder())
+        {
+            let (name, kind) = match cx.tcx.hir().find(ty_hir_id) {
+                Some(Node::ForeignItem(x)) => (x.ident.name, "extern type"),
+                Some(Node::Item(x)) => match x.kind {
+                    ItemKind::Struct(..) => (x.ident.name, "struct"),
+                    ItemKind::Enum(..) => (x.ident.name, "enum"),
+                    ItemKind::Union(..) => (x.ident.name, "union"),
+                    _ => (x.ident.name, "type"),
+                }
+                _ => return,
+            };
+            check_for_is_empty(cx, sig.span, sig.decl.implicit_self, output, ty_id, name, kind);
         }
     }
 

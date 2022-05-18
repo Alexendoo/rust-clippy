@@ -48,31 +48,29 @@ declare_lint_pass!(UnitHash => [UNIT_HASH]);
 
 impl<'tcx> LateLintPass<'tcx> for UnitHash {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if_chain! {
-            if let ExprKind::MethodCall(name_ident, args, _) = &expr.kind;
-            if name_ident.ident.name == sym::hash;
-            if let [recv, state_param] = args;
-            if cx.typeck_results().expr_ty(recv).is_unit();
-            then {
-                span_lint_and_then(
-                    cx,
-                    UNIT_HASH,
-                    expr.span,
-                    "this call to `hash` on the unit type will do nothing",
-                    |diag| {
-                        diag.span_suggestion(
-                            expr.span,
-                            "remove the call to `hash` or consider using",
-                            format!(
-                                "0_u8.hash({})",
-                                snippet(cx, state_param.span, ".."),
-                            ),
-                            Applicability::MaybeIncorrect,
-                        );
-                        diag.note("the implementation of `Hash` for `()` is a no-op");
-                    }
-                );
-            }
+        if let ExprKind::MethodCall(name_ident, args, _) = &expr.kind
+            && name_ident.ident.name == sym::hash
+            && let [recv, state_param] = args
+            && cx.typeck_results().expr_ty(recv).is_unit()
+        {
+            span_lint_and_then(
+                cx,
+                UNIT_HASH,
+                expr.span,
+                "this call to `hash` on the unit type will do nothing",
+                |diag| {
+                    diag.span_suggestion(
+                        expr.span,
+                        "remove the call to `hash` or consider using",
+                        format!(
+                            "0_u8.hash({})",
+                            snippet(cx, state_param.span, ".."),
+                        ),
+                        Applicability::MaybeIncorrect,
+                    );
+                    diag.note("the implementation of `Hash` for `()` is a no-op");
+                }
+            );
         }
     }
 }

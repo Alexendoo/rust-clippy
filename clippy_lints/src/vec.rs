@@ -3,7 +3,6 @@ use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::higher;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::is_copy;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{BorrowKind, Expr, ExprKind, Mutability};
 use rustc_lint::{LateContext, LateLintPass};
@@ -47,26 +46,22 @@ impl_lint_pass!(UselessVec => [USELESS_VEC]);
 impl<'tcx> LateLintPass<'tcx> for UselessVec {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
         // search for `&vec![_]` expressions where the adjusted type is `&[_]`
-        if_chain! {
-            if let ty::Ref(_, ty, _) = cx.typeck_results().expr_ty_adjusted(expr).kind();
-            if let ty::Slice(..) = ty.kind();
-            if let ExprKind::AddrOf(BorrowKind::Ref, mutability, addressee) = expr.kind;
-            if let Some(vec_args) = higher::VecArgs::hir(cx, addressee);
-            then {
-                self.check_vec_macro(cx, &vec_args, mutability, expr.span);
-            }
+        if let ty::Ref(_, ty, _) = cx.typeck_results().expr_ty_adjusted(expr).kind()
+            && let ty::Slice(..) = ty.kind()
+            && let ExprKind::AddrOf(BorrowKind::Ref, mutability, addressee) = expr.kind
+            && let Some(vec_args) = higher::VecArgs::hir(cx, addressee)
+        {
+            self.check_vec_macro(cx, &vec_args, mutability, expr.span);
         }
 
         // search for `for _ in vec![…]`
-        if_chain! {
-            if let Some(higher::ForLoop { arg, .. }) = higher::ForLoop::hir(expr);
-            if let Some(vec_args) = higher::VecArgs::hir(cx, arg);
-            if is_copy(cx, vec_type(cx.typeck_results().expr_ty_adjusted(arg)));
-            then {
-                // report the error around the `vec!` not inside `<std macros>:`
-                let span = arg.span.ctxt().outer_expn_data().call_site;
-                self.check_vec_macro(cx, &vec_args, Mutability::Not, span);
-            }
+        if let Some(higher::ForLoop { arg, .. }) = higher::ForLoop::hir(expr)
+            && let Some(vec_args) = higher::VecArgs::hir(cx, arg)
+            && is_copy(cx, vec_type(cx.typeck_results().expr_ty_adjusted(arg)))
+        {
+            // report the error around the `vec!` not inside `<std macros>:`
+            let span = arg.span.ctxt().outer_expn_data().call_site;
+            self.check_vec_macro(cx, &vec_args, Mutability::Not, span);
         }
     }
 }

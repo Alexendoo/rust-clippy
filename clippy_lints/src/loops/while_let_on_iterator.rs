@@ -5,7 +5,6 @@ use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::{
     get_enclosing_loop_or_closure, is_refutable, is_trait_method, match_def_path, paths, visitors::is_res_used,
 };
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::{walk_expr, Visitor};
 use rustc_hir::{def::Res, Expr, ExprKind, HirId, Local, Mutability, PatKind, QPath, UnOp};
@@ -14,24 +13,23 @@ use rustc_middle::ty::adjustment::Adjust;
 use rustc_span::{symbol::sym, Symbol};
 
 pub(super) fn check<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-    let (scrutinee_expr, iter_expr_struct, iter_expr, some_pat, loop_expr) = if_chain! {
-        if let Some(higher::WhileLet { if_then, let_pat, let_expr }) = higher::WhileLet::hir(expr);
-        // check for `Some(..)` pattern
-        if let PatKind::TupleStruct(QPath::Resolved(None, pat_path), some_pat, _) = let_pat.kind;
-        if let Res::Def(_, pat_did) = pat_path.res;
-        if match_def_path(cx, pat_did, &paths::OPTION_SOME);
-        // check for call to `Iterator::next`
-        if let ExprKind::MethodCall(method_name, [iter_expr], _) = let_expr.kind;
-        if method_name.ident.name == sym::next;
-        if is_trait_method(cx, let_expr, sym::Iterator);
-        if let Some(iter_expr_struct) = try_parse_iter_expr(cx, iter_expr);
-        // get the loop containing the match expression
-        if !uses_iter(cx, &iter_expr_struct, if_then);
-        then {
-            (let_expr, iter_expr_struct, iter_expr, some_pat, expr)
-        } else {
-            return;
-        }
+    let (scrutinee_expr, iter_expr_struct, iter_expr, some_pat, loop_expr) =
+        if let Some(higher::WhileLet { if_then, let_pat, let_expr }) = higher::WhileLet::hir(expr)
+            // check for `Some(..)` pattern
+            && let PatKind::TupleStruct(QPath::Resolved(None, pat_path), some_pat, _) = let_pat.kind
+            && let Res::Def(_, pat_did) = pat_path.res
+            && match_def_path(cx, pat_did, &paths::OPTION_SOME)
+            // check for call to `Iterator::next`
+            && let ExprKind::MethodCall(method_name, [iter_expr], _) = let_expr.kind
+            && method_name.ident.name == sym::next
+            && is_trait_method(cx, let_expr, sym::Iterator)
+            && let Some(iter_expr_struct) = try_parse_iter_expr(cx, iter_expr)
+            // get the loop containing the match expression
+            && !uses_iter(cx, &iter_expr_struct, if_then)
+    {
+        (let_expr, iter_expr_struct, iter_expr, some_pat, expr)
+    } else {
+        return;
     };
 
     let mut applicability = Applicability::MachineApplicable;

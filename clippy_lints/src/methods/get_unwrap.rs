@@ -3,7 +3,6 @@ use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::get_parent_expr;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::is_type_diagnostic_item;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_lint::LateContext;
@@ -48,14 +47,12 @@ pub(super) fn check<'tcx>(
     // Handle the case where the result is immediately dereferenced
     // by not requiring ref and pulling the dereference into the
     // suggestion.
-    if_chain! {
-        if needs_ref;
-        if let Some(parent) = get_parent_expr(cx, expr);
-        if let hir::ExprKind::Unary(hir::UnOp::Deref, _) = parent.kind;
-        then {
-            needs_ref = false;
-            span = parent.span;
-        }
+    if needs_ref
+        && let Some(parent) = get_parent_expr(cx, expr)
+        && let hir::ExprKind::Unary(hir::UnOp::Deref, _) = parent.kind
+    {
+        needs_ref = false;
+        span = parent.span;
     }
 
     let mut_str = if is_mut { "_mut" } else { "" };

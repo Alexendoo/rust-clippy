@@ -52,28 +52,26 @@ impl<'tcx> LateLintPass<'tcx> for ManualBits {
             return;
         }
 
-        if_chain! {
-            if let ExprKind::Binary(bin_op, left_expr, right_expr) = expr.kind;
-            if let BinOpKind::Mul = &bin_op.node;
-            if let Some((real_ty, resolved_ty, other_expr)) = get_one_size_of_ty(cx, left_expr, right_expr);
-            if matches!(resolved_ty.kind(), ty::Int(_) | ty::Uint(_));
-            if let ExprKind::Lit(lit) = &other_expr.kind;
-            if let LitKind::Int(8, _) = lit.node;
-            then {
-                let mut app = Applicability::MachineApplicable;
-                let ty_snip = snippet_with_applicability(cx, real_ty.span, "..", &mut app);
-                let sugg = create_sugg(cx, expr, format!("{ty_snip}::BITS"));
+        if let ExprKind::Binary(bin_op, left_expr, right_expr) = expr.kind
+            && let BinOpKind::Mul = &bin_op.node
+            && let Some((real_ty, resolved_ty, other_expr)) = get_one_size_of_ty(cx, left_expr, right_expr)
+            && matches!(resolved_ty.kind(), ty::Int(_) | ty::Uint(_))
+            && let ExprKind::Lit(lit) = &other_expr.kind
+            && let LitKind::Int(8, _) = lit.node
+        {
+            let mut app = Applicability::MachineApplicable;
+            let ty_snip = snippet_with_applicability(cx, real_ty.span, "..", &mut app);
+            let sugg = create_sugg(cx, expr, format!("{ty_snip}::BITS"));
 
-                span_lint_and_sugg(
-                    cx,
-                    MANUAL_BITS,
-                    expr.span,
-                    "usage of `mem::size_of::<T>()` to obtain the size of `T` in bits",
-                    "consider using",
-                    sugg,
-                    app,
-                );
-            }
+            span_lint_and_sugg(
+                cx,
+                MANUAL_BITS,
+                expr.span,
+                "usage of `mem::size_of::<T>()` to obtain the size of `T` in bits",
+                "consider using",
+                sugg,
+                app,
+            );
         }
     }
 
@@ -93,22 +91,20 @@ fn get_one_size_of_ty<'tcx>(
 }
 
 fn get_size_of_ty<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) -> Option<(&'tcx rustc_hir::Ty<'tcx>, Ty<'tcx>)> {
-    if_chain! {
-        if let ExprKind::Call(count_func, _func_args) = expr.kind;
-        if let ExprKind::Path(ref count_func_qpath) = count_func.kind;
+    if let ExprKind::Call(count_func, _func_args) = expr.kind
+        && let ExprKind::Path(ref count_func_qpath) = count_func.kind
 
-        if let QPath::Resolved(_, count_func_path) = count_func_qpath;
-        if let Some(segment_zero) = count_func_path.segments.get(0);
-        if let Some(args) = segment_zero.args;
-        if let Some(GenericArg::Type(real_ty)) = args.args.get(0);
+        && let QPath::Resolved(_, count_func_path) = count_func_qpath
+        && let Some(segment_zero) = count_func_path.segments.get(0)
+        && let Some(args) = segment_zero.args
+        && let Some(GenericArg::Type(real_ty)) = args.args.get(0)
 
-        if let Some(def_id) = cx.qpath_res(count_func_qpath, count_func.hir_id).opt_def_id();
-        if cx.tcx.is_diagnostic_item(sym::mem_size_of, def_id);
-        then {
-            cx.typeck_results().node_substs(count_func.hir_id).types().next().map(|resolved_ty| (real_ty, resolved_ty))
-        } else {
-            None
-        }
+        && let Some(def_id) = cx.qpath_res(count_func_qpath, count_func.hir_id).opt_def_id()
+        && cx.tcx.is_diagnostic_item(sym::mem_size_of, def_id)
+    {
+        cx.typeck_results().node_substs(count_func.hir_id).types().next().map(|resolved_ty| (real_ty, resolved_ty))
+    } else {
+        None
     }
 }
 

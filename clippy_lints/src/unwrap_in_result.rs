@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{method_chain_args, return_ty};
-use if_chain::if_chain;
 use rustc_hir as hir;
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_hir::{Expr, ImplItemKind};
@@ -60,15 +59,13 @@ declare_lint_pass!(UnwrapInResult=> [UNWRAP_IN_RESULT]);
 
 impl<'tcx> LateLintPass<'tcx> for UnwrapInResult {
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, impl_item: &'tcx hir::ImplItem<'_>) {
-        if_chain! {
-            // first check if it's a method or function
-            if let hir::ImplItemKind::Fn(ref _signature, _) = impl_item.kind;
-            // checking if its return type is `result` or `option`
-            if is_type_diagnostic_item(cx, return_ty(cx, impl_item.hir_id()), sym::Result)
-                || is_type_diagnostic_item(cx, return_ty(cx, impl_item.hir_id()), sym::Option);
-            then {
-                lint_impl_body(cx, impl_item.span, impl_item);
-            }
+        // first check if it's a method or function
+        // checking if its return type is `result` or `option`
+        if let hir::ImplItemKind::Fn(ref _signature, _) = impl_item.kind
+            && (is_type_diagnostic_item(cx, return_ty(cx, impl_item.hir_id()), sym::Result)
+                || is_type_diagnostic_item(cx, return_ty(cx, impl_item.hir_id()), sym::Option))
+        {
+            lint_impl_body(cx, impl_item.span, impl_item);
         }
     }
 }

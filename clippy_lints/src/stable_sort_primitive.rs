@@ -1,6 +1,5 @@
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::{is_slice_of_primitives, sugg::Sugg};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -96,17 +95,15 @@ struct LintDetection {
 }
 
 fn detect_stable_sort_primitive(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<LintDetection> {
-    if_chain! {
-        if let ExprKind::MethodCall(method_name, args, _) = &expr.kind;
-        if let Some(slice) = &args.get(0);
-        if let Some(method) = SortingKind::from_stable_name(method_name.ident.name.as_str());
-        if let Some(slice_type) = is_slice_of_primitives(cx, slice);
-        then {
-            let args_str = args.iter().skip(1).map(|arg| Sugg::hir(cx, arg, "..").to_string()).collect::<Vec<String>>().join(", ");
-            Some(LintDetection { slice_name: Sugg::hir(cx, slice, "..").to_string(), method, method_args: args_str, slice_type })
-        } else {
-            None
-        }
+    if let ExprKind::MethodCall(method_name, args, _) = &expr.kind
+        && let Some(slice) = args.get(0)
+        && let Some(method) = SortingKind::from_stable_name(method_name.ident.name.as_str())
+        && let Some(slice_type) = is_slice_of_primitives(cx, slice)
+    {
+        let args_str = args.iter().skip(1).map(|arg| Sugg::hir(cx, arg, "..").to_string()).collect::<Vec<String>>().join(", ");
+        Some(LintDetection { slice_name: Sugg::hir(cx, slice, "..").to_string(), method, method_args: args_str, slice_type })
+    } else {
+        None
     }
 }
 

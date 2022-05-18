@@ -5,7 +5,6 @@ use clippy_utils::source::snippet_opt;
 use clippy_utils::ty::expr_sig;
 use clippy_utils::visitors::contains_unsafe_block;
 use clippy_utils::{get_expr_use_or_unification_node, is_lint_allowed, path_def_id, path_to_local, paths};
-use if_chain::if_chain;
 use rustc_errors::{Applicability, MultiSpan};
 use rustc_hir::def_id::DefId;
 use rustc_hir::hir_id::HirIdMap;
@@ -271,27 +270,25 @@ fn check_invalid_ptr_usage<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
         (&paths::PTR_WRITE_BYTES, &[0]),
     ];
 
-    if_chain! {
-        if let ExprKind::Call(fun, args) = expr.kind;
-        if let ExprKind::Path(ref qpath) = fun.kind;
-        if let Some(fun_def_id) = cx.qpath_res(qpath, fun.hir_id).opt_def_id();
-        let fun_def_path = cx.get_def_path(fun_def_id).into_iter().map(Symbol::to_ident_string).collect::<Vec<_>>();
-        if let Some(&(_, arg_indices)) = INVALID_NULL_PTR_USAGE_TABLE
+    if let ExprKind::Call(fun, args) = expr.kind
+        && let ExprKind::Path(ref qpath) = fun.kind
+        && let Some(fun_def_id) = cx.qpath_res(qpath, fun.hir_id).opt_def_id()
+        && let fun_def_path = cx.get_def_path(fun_def_id).into_iter().map(Symbol::to_ident_string).collect::<Vec<_>>()
+        && let Some(&(_, arg_indices)) = INVALID_NULL_PTR_USAGE_TABLE
             .iter()
-            .find(|&&(fn_path, _)| fn_path == fun_def_path);
-        then {
-            for &arg_idx in arg_indices {
-                if let Some(arg) = args.get(arg_idx).filter(|arg| is_null_path(cx, arg)) {
-                    span_lint_and_sugg(
-                        cx,
-                        INVALID_NULL_PTR_USAGE,
-                        arg.span,
-                        "pointer must be non-null",
-                        "change this to",
-                        "core::ptr::NonNull::dangling().as_ptr()".to_string(),
-                        Applicability::MachineApplicable,
-                    );
-                }
+            .find(|&&(fn_path, _)| fn_path == fun_def_path)
+    {
+        for &arg_idx in arg_indices {
+            if let Some(arg) = args.get(arg_idx).filter(|arg| is_null_path(cx, arg)) {
+                span_lint_and_sugg(
+                    cx,
+                    INVALID_NULL_PTR_USAGE,
+                    arg.span,
+                    "pointer must be non-null",
+                    "change this to",
+                    "core::ptr::NonNull::dangling().as_ptr()".to_string(),
+                    Applicability::MachineApplicable,
+                );
             }
         }
     }
@@ -403,80 +400,78 @@ fn check_fn_args<'cx, 'tcx: 'cx>(
         .zip(hir_tys.iter())
         .enumerate()
         .filter_map(|(i, (ty, hir_ty))| {
-            if_chain! {
-                if let ty::Ref(_, ty, mutability) = *ty.kind();
-                if let ty::Adt(adt, substs) = *ty.kind();
+            if let ty::Ref(_, ty, mutability) = *ty.kind()
+                && let ty::Adt(adt, substs) = *ty.kind()
 
-                if let TyKind::Rptr(lt, ref ty) = hir_ty.kind;
-                if let TyKind::Path(QPath::Resolved(None, path)) = ty.ty.kind;
+                && let TyKind::Rptr(lt, ref ty) = hir_ty.kind
+                && let TyKind::Path(QPath::Resolved(None, path)) = ty.ty.kind
 
                 // Check that the name as typed matches the actual name of the type.
                 // e.g. `fn foo(_: &Foo)` shouldn't trigger the lint when `Foo` is an alias for `Vec`
-                if let [.., name] = path.segments;
-                if cx.tcx.item_name(adt.did()) == name.ident.name;
+                && let [.., name] = path.segments
+                && cx.tcx.item_name(adt.did()) == name.ident.name
 
-                if !is_lint_allowed(cx, PTR_ARG, hir_ty.hir_id);
-                if params.get(i).map_or(true, |p| !is_lint_allowed(cx, PTR_ARG, p.hir_id));
+                && !is_lint_allowed(cx, PTR_ARG, hir_ty.hir_id)
+                && params.get(i).map_or(true, |p| !is_lint_allowed(cx, PTR_ARG, p.hir_id))
 
-                then {
-                    let (method_renames, deref_ty) = match cx.tcx.get_diagnostic_name(adt.did()) {
-                        Some(sym::Vec) => (
-                            [("clone", ".to_owned()")].as_slice(),
-                            DerefTy::Slice(
-                                name.args
-                                    .and_then(|args| args.args.first())
-                                    .and_then(|arg| if let GenericArg::Type(ty) = arg {
-                                        Some(ty.span)
-                                    } else {
-                                        None
-                                    }),
-                                substs.type_at(0),
-                            ),
+            {
+                let (method_renames, deref_ty) = match cx.tcx.get_diagnostic_name(adt.did()) {
+                    Some(sym::Vec) => (
+                        [("clone", ".to_owned()")].as_slice(),
+                        DerefTy::Slice(
+                            name.args
+                                .and_then(|args| args.args.first())
+                                .and_then(|arg| if let GenericArg::Type(ty) = arg {
+                                    Some(ty.span)
+                                } else {
+                                    None
+                                }),
+                            substs.type_at(0),
                         ),
-                        Some(sym::String) => (
-                            [("clone", ".to_owned()"), ("as_str", "")].as_slice(),
-                            DerefTy::Str,
-                        ),
-                        Some(sym::PathBuf) => (
-                            [("clone", ".to_path_buf()"), ("as_path", "")].as_slice(),
-                            DerefTy::Path,
-                        ),
-                        Some(sym::Cow) if mutability == Mutability::Not => {
-                            let ty_name = name.args
-                                .and_then(|args| {
-                                    args.args.iter().find_map(|a| match a {
-                                        GenericArg::Type(x) => Some(x),
-                                        _ => None,
-                                    })
+                    ),
+                    Some(sym::String) => (
+                        [("clone", ".to_owned()"), ("as_str", "")].as_slice(),
+                        DerefTy::Str,
+                    ),
+                    Some(sym::PathBuf) => (
+                        [("clone", ".to_path_buf()"), ("as_path", "")].as_slice(),
+                        DerefTy::Path,
+                    ),
+                    Some(sym::Cow) if mutability == Mutability::Not => {
+                        let ty_name = name.args
+                            .and_then(|args| {
+                                args.args.iter().find_map(|a| match a {
+                                    GenericArg::Type(x) => Some(x),
+                                    _ => None,
                                 })
-                                .and_then(|arg| snippet_opt(cx, arg.span))
-                                .unwrap_or_else(|| substs.type_at(1).to_string());
-                            span_lint_and_sugg(
-                                cx,
-                                PTR_ARG,
-                                hir_ty.span,
-                                "using a reference to `Cow` is not recommended",
-                                "change this to",
-                                format!("&{}{}", mutability.prefix_str(), ty_name),
-                                Applicability::Unspecified,
-                            );
-                            return None;
-                        },
-                        _ => return None,
-                    };
-                    return Some(PtrArg {
-                        idx: i,
-                        span: hir_ty.span,
-                        ty_did: adt.did(),
-                        ty_name: name.ident.name,
-                        method_renames,
-                        ref_prefix: RefPrefix {
-                            lt: lt.name,
-                            mutability,
-                        },
-                        deref_ty,
-                    });
-                }
+                            })
+                            .and_then(|arg| snippet_opt(cx, arg.span))
+                            .unwrap_or_else(|| substs.type_at(1).to_string());
+                        span_lint_and_sugg(
+                            cx,
+                            PTR_ARG,
+                            hir_ty.span,
+                            "using a reference to `Cow` is not recommended",
+                            "change this to",
+                            format!("&{}{}", mutability.prefix_str(), ty_name),
+                            Applicability::Unspecified,
+                        );
+                        return None;
+                    },
+                    _ => return None,
+                };
+                return Some(PtrArg {
+                    idx: i,
+                    span: hir_ty.span,
+                    ty_did: adt.did(),
+                    ty_name: name.ident.name,
+                    method_renames,
+                    ref_prefix: RefPrefix {
+                        lt: lt.name,
+                        mutability,
+                    },
+                    deref_ty,
+                });
             }
             None
         })

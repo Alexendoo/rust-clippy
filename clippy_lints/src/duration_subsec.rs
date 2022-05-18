@@ -2,7 +2,6 @@ use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::is_type_diagnostic_item;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -42,32 +41,30 @@ declare_lint_pass!(DurationSubsec => [DURATION_SUBSEC]);
 
 impl<'tcx> LateLintPass<'tcx> for DurationSubsec {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            if let ExprKind::Binary(Spanned { node: BinOpKind::Div, .. }, left, right) = expr.kind;
-            if let ExprKind::MethodCall(method_path, args, _) = left.kind;
-            if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(&args[0]).peel_refs(), sym::Duration);
-            if let Some((Constant::Int(divisor), _)) = constant(cx, cx.typeck_results(), right);
-            then {
-                let suggested_fn = match (method_path.ident.as_str(), divisor) {
-                    ("subsec_micros", 1_000) | ("subsec_nanos", 1_000_000) => "subsec_millis",
-                    ("subsec_nanos", 1_000) => "subsec_micros",
-                    _ => return,
-                };
-                let mut applicability = Applicability::MachineApplicable;
-                span_lint_and_sugg(
-                    cx,
-                    DURATION_SUBSEC,
-                    expr.span,
-                    &format!("calling `{}()` is more concise than this calculation", suggested_fn),
-                    "try",
-                    format!(
-                        "{}.{}()",
-                        snippet_with_applicability(cx, args[0].span, "_", &mut applicability),
-                        suggested_fn
-                    ),
-                    applicability,
-                );
-            }
+        if let ExprKind::Binary(Spanned { node: BinOpKind::Div, .. }, left, right) = expr.kind
+            && let ExprKind::MethodCall(method_path, args, _) = left.kind
+            && is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(&args[0]).peel_refs(), sym::Duration)
+            && let Some((Constant::Int(divisor), _)) = constant(cx, cx.typeck_results(), right)
+        {
+            let suggested_fn = match (method_path.ident.as_str(), divisor) {
+                ("subsec_micros", 1_000) | ("subsec_nanos", 1_000_000) => "subsec_millis",
+                ("subsec_nanos", 1_000) => "subsec_micros",
+                _ => return,
+            };
+            let mut applicability = Applicability::MachineApplicable;
+            span_lint_and_sugg(
+                cx,
+                DURATION_SUBSEC,
+                expr.span,
+                &format!("calling `{}()` is more concise than this calculation", suggested_fn),
+                "try",
+                format!(
+                    "{}.{}()",
+                    snippet_with_applicability(cx, args[0].span, "_", &mut applicability),
+                    suggested_fn
+                ),
+                applicability,
+            );
         }
     }
 }

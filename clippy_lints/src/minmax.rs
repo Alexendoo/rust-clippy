@@ -1,7 +1,6 @@
 use clippy_utils::consts::{constant_simple, Constant};
 use clippy_utils::diagnostics::span_lint;
 use clippy_utils::{match_trait_method, paths};
-use if_chain::if_chain;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
@@ -84,20 +83,18 @@ fn min_max<'a>(cx: &LateContext<'_>, expr: &'a Expr<'a>) -> Option<(MinMax, Cons
             }
         },
         ExprKind::MethodCall(path, args, _) => {
-            if_chain! {
-                if let [obj, _] = args;
-                if cx.typeck_results().expr_ty(obj).is_floating_point() || match_trait_method(cx, expr, &paths::ORD);
-                then {
-                    if path.ident.name == sym!(max) {
-                        fetch_const(cx, args, MinMax::Max)
-                    } else if path.ident.name == sym!(min) {
-                        fetch_const(cx, args, MinMax::Min)
-                    } else {
-                        None
-                    }
+            if let [obj, _] = args
+                && (cx.typeck_results().expr_ty(obj).is_floating_point() || match_trait_method(cx, expr, &paths::ORD))
+            {
+                if path.ident.name == sym!(max) {
+                    fetch_const(cx, args, MinMax::Max)
+                } else if path.ident.name == sym!(min) {
+                    fetch_const(cx, args, MinMax::Min)
                 } else {
                     None
                 }
+            } else {
+                None
             }
         },
         _ => None,

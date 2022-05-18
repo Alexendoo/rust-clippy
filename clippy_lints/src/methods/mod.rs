@@ -79,7 +79,6 @@ use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::{span_lint, span_lint_and_help};
 use clippy_utils::ty::{contains_adt_constructor, contains_ty, implements_trait, is_copy, is_type_diagnostic_item};
 use clippy_utils::{contains_return, get_trait_def_id, iter_input_pats, meets_msrv, msrvs, paths, return_ty};
-use if_chain::if_chain;
 use rustc_hir as hir;
 use rustc_hir::def::Res;
 use rustc_hir::{Expr, ExprKind, PrimTy, QPath, TraitItem, TraitItemKind};
@@ -2355,64 +2354,62 @@ impl<'tcx> LateLintPass<'tcx> for Methods {
         let self_ty = cx.tcx.type_of(item.def_id);
 
         let implements_trait = matches!(item.kind, hir::ItemKind::Impl(hir::Impl { of_trait: Some(_), .. }));
-        if_chain! {
-            if let hir::ImplItemKind::Fn(ref sig, id) = impl_item.kind;
-            if let Some(first_arg) = iter_input_pats(sig.decl, cx.tcx.hir().body(id)).next();
+        if let hir::ImplItemKind::Fn(ref sig, id) = impl_item.kind
+            && let Some(first_arg) = iter_input_pats(sig.decl, cx.tcx.hir().body(id)).next()
 
-            let method_sig = cx.tcx.fn_sig(impl_item.def_id);
-            let method_sig = cx.tcx.erase_late_bound_regions(method_sig);
+            && let method_sig = cx.tcx.fn_sig(impl_item.def_id)
+            && let method_sig = cx.tcx.erase_late_bound_regions(method_sig)
 
-            let first_arg_ty = method_sig.inputs().iter().next();
+            && let first_arg_ty = method_sig.inputs().iter().next()
 
             // check conventions w.r.t. conversion method names and predicates
-            if let Some(first_arg_ty) = first_arg_ty;
+            && let Some(first_arg_ty) = first_arg_ty
 
-            then {
-                // if this impl block implements a trait, lint in trait definition instead
-                if !implements_trait && cx.access_levels.is_exported(impl_item.def_id) {
-                    // check missing trait implementations
-                    for method_config in &TRAIT_METHODS {
-                        if name == method_config.method_name &&
-                            sig.decl.inputs.len() == method_config.param_count &&
-                            method_config.output_type.matches(&sig.decl.output) &&
-                            method_config.self_kind.matches(cx, self_ty, *first_arg_ty) &&
-                            fn_header_equals(method_config.fn_header, sig.header) &&
-                            method_config.lifetime_param_cond(impl_item)
-                        {
-                            span_lint_and_help(
-                                cx,
-                                SHOULD_IMPLEMENT_TRAIT,
-                                impl_item.span,
-                                &format!(
-                                    "method `{}` can be confused for the standard trait method `{}::{}`",
-                                    method_config.method_name,
-                                    method_config.trait_name,
-                                    method_config.method_name
-                                ),
-                                None,
-                                &format!(
-                                    "consider implementing the trait `{}` or choosing a less ambiguous method name",
-                                    method_config.trait_name
-                                )
-                            );
-                        }
+        {
+            // if this impl block implements a trait, lint in trait definition instead
+            if !implements_trait && cx.access_levels.is_exported(impl_item.def_id) {
+                // check missing trait implementations
+                for method_config in &TRAIT_METHODS {
+                    if name == method_config.method_name &&
+                        sig.decl.inputs.len() == method_config.param_count &&
+                        method_config.output_type.matches(&sig.decl.output) &&
+                        method_config.self_kind.matches(cx, self_ty, *first_arg_ty) &&
+                        fn_header_equals(method_config.fn_header, sig.header) &&
+                        method_config.lifetime_param_cond(impl_item)
+                    {
+                        span_lint_and_help(
+                            cx,
+                            SHOULD_IMPLEMENT_TRAIT,
+                            impl_item.span,
+                            &format!(
+                                "method `{}` can be confused for the standard trait method `{}::{}`",
+                                method_config.method_name,
+                                method_config.trait_name,
+                                method_config.method_name
+                            ),
+                            None,
+                            &format!(
+                                "consider implementing the trait `{}` or choosing a less ambiguous method name",
+                                method_config.trait_name
+                            )
+                        );
                     }
                 }
+            }
 
-                if sig.decl.implicit_self.has_implicit_self()
-                    && !(self.avoid_breaking_exported_api
-                        && cx.access_levels.is_exported(impl_item.def_id))
-                {
-                    wrong_self_convention::check(
-                        cx,
-                        name,
-                        self_ty,
-                        *first_arg_ty,
-                        first_arg.pat.span,
-                        implements_trait,
-                        false
-                    );
-                }
+            if sig.decl.implicit_self.has_implicit_self()
+                && !(self.avoid_breaking_exported_api
+                    && cx.access_levels.is_exported(impl_item.def_id))
+            {
+                wrong_self_convention::check(
+                    cx,
+                    name,
+                    self_ty,
+                    *first_arg_ty,
+                    first_arg.pat.span,
+                    implements_trait,
+                    false
+                );
             }
         }
 
@@ -2470,42 +2467,38 @@ impl<'tcx> LateLintPass<'tcx> for Methods {
             return;
         }
 
-        if_chain! {
-            if let TraitItemKind::Fn(ref sig, _) = item.kind;
-            if sig.decl.implicit_self.has_implicit_self();
-            if let Some(first_arg_ty) = sig.decl.inputs.iter().next();
+        if let TraitItemKind::Fn(ref sig, _) = item.kind
+            && sig.decl.implicit_self.has_implicit_self()
+            && let Some(first_arg_ty) = sig.decl.inputs.iter().next()
 
-            then {
-                let first_arg_span = first_arg_ty.span;
-                let first_arg_ty = hir_ty_to_ty(cx.tcx, first_arg_ty);
-                let self_ty = TraitRef::identity(cx.tcx, item.def_id.to_def_id()).self_ty().skip_binder();
-                wrong_self_convention::check(
-                    cx,
-                    item.ident.name.as_str(),
-                    self_ty,
-                    first_arg_ty,
-                    first_arg_span,
-                    false,
-                    true
-                );
-            }
+        {
+            let first_arg_span = first_arg_ty.span;
+            let first_arg_ty = hir_ty_to_ty(cx.tcx, first_arg_ty);
+            let self_ty = TraitRef::identity(cx.tcx, item.def_id.to_def_id()).self_ty().skip_binder();
+            wrong_self_convention::check(
+                cx,
+                item.ident.name.as_str(),
+                self_ty,
+                first_arg_ty,
+                first_arg_span,
+                false,
+                true
+            );
         }
 
-        if_chain! {
-            if item.ident.name == sym::new;
-            if let TraitItemKind::Fn(_, _) = item.kind;
-            let ret_ty = return_ty(cx, item.hir_id());
-            let self_ty = TraitRef::identity(cx.tcx, item.def_id.to_def_id()).self_ty().skip_binder();
-            if !contains_ty(ret_ty, self_ty);
+        if item.ident.name == sym::new
+            && let TraitItemKind::Fn(_, _) = item.kind
+            && let ret_ty = return_ty(cx, item.hir_id())
+            && let self_ty = TraitRef::identity(cx.tcx, item.def_id.to_def_id()).self_ty().skip_binder()
+            && !contains_ty(ret_ty, self_ty)
 
-            then {
-                span_lint(
-                    cx,
-                    NEW_RET_NO_SELF,
-                    item.span,
-                    "methods called `new` usually return `Self`",
-                );
-            }
+        {
+            span_lint(
+                cx,
+                NEW_RET_NO_SELF,
+                item.span,
+                "methods called `new` usually return `Self`",
+            );
         }
     }
 

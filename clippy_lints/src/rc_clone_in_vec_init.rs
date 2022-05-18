@@ -125,16 +125,14 @@ fn emit_lint(cx: &LateContext<'_>, symbol: Symbol, lint_span: Span, elem: &Expr<
 
 /// Checks whether the given `expr` is a call to `Arc::new` or `Rc::new`
 fn new_reference_call(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<Symbol> {
-    if_chain! {
-        if let ExprKind::Call(func, _args) = expr.kind;
-        if let ExprKind::Path(ref func_path @ QPath::TypeRelative(ty, _)) = func.kind;
-        if let TyKind::Path(ref ty_path) = ty.kind;
-        if let Some(def_id) = cx.qpath_res(ty_path, ty.hir_id).opt_def_id();
-        if last_path_segment(func_path).ident.name == sym::new;
+    if let ExprKind::Call(func, _args) = expr.kind
+        && let ExprKind::Path(ref func_path @ QPath::TypeRelative(ty, _)) = func.kind
+        && let TyKind::Path(ref ty_path) = ty.kind
+        && let Some(def_id) = cx.qpath_res(ty_path, ty.hir_id).opt_def_id()
+        && last_path_segment(func_path).ident.name == sym::new
 
-        then {
-            return cx.tcx.get_diagnostic_name(def_id).filter(|symbol| symbol == &sym::Arc || symbol == &sym::Rc);
-        }
+    {
+        return cx.tcx.get_diagnostic_name(def_id).filter(|symbol| symbol == &sym::Arc || symbol == &sym::Rc);
     }
 
     None

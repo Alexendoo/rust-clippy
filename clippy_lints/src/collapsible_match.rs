@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::higher::IfLetOrMatch;
 use clippy_utils::visitors::is_local_used;
 use clippy_utils::{is_lang_ctor, is_unit_expr, path_to_local, peel_blocks_with_stmt, peel_ref_operators, SpanlessEq};
-use if_chain::if_chain;
 use rustc_errors::MultiSpan;
 use rustc_hir::LangItem::OptionNone;
 use rustc_hir::{Arm, Expr, Guard, HirId, Pat, PatKind};
@@ -77,65 +76,62 @@ fn check_arm<'tcx>(
     outer_else_body: Option<&'tcx Expr<'tcx>>,
 ) {
     let inner_expr = peel_blocks_with_stmt(outer_then_body);
-    if_chain! {
-        if let Some(inner) = IfLetOrMatch::parse(cx, inner_expr);
-        if let Some((inner_scrutinee, inner_then_pat, inner_else_body)) = match inner {
+    if let Some(inner) = IfLetOrMatch::parse(cx, inner_expr)
+        && let Some((inner_scrutinee, inner_then_pat, inner_else_body)) = match inner {
             IfLetOrMatch::IfLet(scrutinee, pat, _, els) => Some((scrutinee, pat, els)),
-            IfLetOrMatch::Match(scrutinee, arms, ..) => if_chain! {
+            IfLetOrMatch::Match(scrutinee, arms, ..) => if arms.len() == 2
                 // if there are more than two arms, collapsing would be non-trivial
-                if arms.len() == 2 && arms.iter().all(|a| a.guard.is_none());
+                && arms.iter().all(|a| a.guard.is_none())
                 // one of the arms must be "wild-like"
-                if let Some(wild_idx) = arms.iter().rposition(|a| arm_is_wild_like(cx, a));
-                then {
-                    let (then, els) = (&arms[1 - wild_idx], &arms[wild_idx]);
-                    Some((scrutinee, then.pat, Some(els.body)))
-                } else {
-                    None
-                }
+                && let Some(wild_idx) = arms.iter().rposition(|a| arm_is_wild_like(cx, a))
+            {
+                let (then, els) = (&arms[1 - wild_idx], &arms[wild_idx]);
+                Some((scrutinee, then.pat, Some(els.body)))
+            } else {
+                None
             },
-        };
-        if outer_pat.span.ctxt() == inner_scrutinee.span.ctxt();
+        }
+        && outer_pat.span.ctxt() == inner_scrutinee.span.ctxt()
         // match expression must be a local binding
         // match <local> { .. }
-        if let Some(binding_id) = path_to_local(peel_ref_operators(cx, inner_scrutinee));
-        if !pat_contains_or(inner_then_pat);
+        && let Some(binding_id) = path_to_local(peel_ref_operators(cx, inner_scrutinee))
+        && !pat_contains_or(inner_then_pat)
         // the binding must come from the pattern of the containing match arm
         // ..<local>.. => match <local> { .. }
-        if let Some(binding_span) = find_pat_binding(outer_pat, binding_id);
+        && let Some(binding_span) = find_pat_binding(outer_pat, binding_id)
         // the "else" branches must be equal
-        if match (outer_else_body, inner_else_body) {
+        && match (outer_else_body, inner_else_body) {
             (None, None) => true,
             (None, Some(e)) | (Some(e), None) => is_unit_expr(e),
             (Some(a), Some(b)) => SpanlessEq::new(cx).eq_expr(a, b),
-        };
+        }
         // the binding must not be used in the if guard
-        if outer_guard.map_or(true, |(Guard::If(e) | Guard::IfLet(_, e))| !is_local_used(cx, *e, binding_id));
+        && outer_guard.map_or(true, |(Guard::If(e) | Guard::IfLet(_, e))| !is_local_used(cx, *e, binding_id))
         // ...or anywhere in the inner expression
-        if match inner {
+        && match inner {
             IfLetOrMatch::IfLet(_, _, body, els) => {
                 !is_local_used(cx, body, binding_id) && els.map_or(true, |e| !is_local_used(cx, e, binding_id))
             },
             IfLetOrMatch::Match(_, arms, ..) => !arms.iter().any(|arm| is_local_used(cx, arm, binding_id)),
-        };
-        then {
-            let msg = format!(
-                "this `{}` can be collapsed into the outer `{}`",
-                if matches!(inner, IfLetOrMatch::Match(..)) { "match" } else { "if let" },
-                if outer_is_match { "match" } else { "if let" },
-            );
-            span_lint_and_then(
-                cx,
-                COLLAPSIBLE_MATCH,
-                inner_expr.span,
-                &msg,
-                |diag| {
-                    let mut help_span = MultiSpan::from_spans(vec![binding_span, inner_then_pat.span]);
-                    help_span.push_span_label(binding_span, "replace this binding");
-                    help_span.push_span_label(inner_then_pat.span, "with this pattern");
-                    diag.span_help(help_span, "the outer pattern can be modified to include the inner pattern");
-                },
-            );
         }
+    {
+        let msg = format!(
+            "this `{}` can be collapsed into the outer `{}`",
+            if matches!(inner, IfLetOrMatch::Match(..)) { "match" } else { "if let" },
+            if outer_is_match { "match" } else { "if let" },
+        );
+        span_lint_and_then(
+            cx,
+            COLLAPSIBLE_MATCH,
+            inner_expr.span,
+            &msg,
+            |diag| {
+                let mut help_span = MultiSpan::from_spans(vec![binding_span, inner_then_pat.span]);
+                help_span.push_span_label(binding_span, "replace this binding");
+                help_span.push_span_label(inner_then_pat.span, "with this pattern");
+                diag.span_help(help_span, "the outer pattern can be modified to include the inner pattern");
+            },
+        );
     }
 }
 

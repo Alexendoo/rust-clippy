@@ -23,24 +23,20 @@ pub(super) fn check<'tcx>(
     let is_option = is_type_diagnostic_item(cx, recv_ty, sym::Option);
     let is_result = is_type_diagnostic_item(cx, recv_ty, sym::Result);
 
-    if_chain! {
-        if is_option || is_result;
-        if is_default_equivalent_call(cx, u_arg);
-        then {
-            let mut applicability = Applicability::MachineApplicable;
+    if (is_option || is_result) && is_default_equivalent_call(cx, u_arg) {
+        let mut applicability = Applicability::MachineApplicable;
 
-            span_lint_and_sugg(
-                cx,
-                UNWRAP_OR_ELSE_DEFAULT,
-                expr.span,
-                "use of `.unwrap_or_else(..)` to construct default value",
-                "try",
-                format!(
-                    "{}.unwrap_or_default()",
-                    snippet_with_applicability(cx, recv.span, "..", &mut applicability)
-                ),
-                applicability,
-            );
-        }
+        span_lint_and_sugg(
+            cx,
+            UNWRAP_OR_ELSE_DEFAULT,
+            expr.span,
+            "use of `.unwrap_or_else(..)` to construct default value",
+            "try",
+            format!(
+                "{}.unwrap_or_default()",
+                snippet_with_applicability(cx, recv.span, "..", &mut applicability)
+            ),
+            applicability,
+        );
     }
 }

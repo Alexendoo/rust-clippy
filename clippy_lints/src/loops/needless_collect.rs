@@ -4,7 +4,6 @@ use clippy_utils::source::{snippet, snippet_with_applicability};
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{can_move_expr_to_closure, is_trait_method, path_to_local, path_to_local_id, CaptureKind};
-use if_chain::if_chain;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::{Applicability, MultiSpan};
 use rustc_hir::intravisit::{walk_block, walk_expr, Visitor};
@@ -23,105 +22,99 @@ pub(super) fn check<'tcx>(expr: &'tcx Expr<'_>, cx: &LateContext<'tcx>) {
     check_needless_collect_indirect_usage(expr, cx);
 }
 fn check_needless_collect_direct_usage<'tcx>(expr: &'tcx Expr<'_>, cx: &LateContext<'tcx>) {
-    if_chain! {
-        if let ExprKind::MethodCall(method, args, _) = expr.kind;
-        if let ExprKind::MethodCall(chain_method, _, _) = args[0].kind;
-        if chain_method.ident.name == sym!(collect) && is_trait_method(cx, &args[0], sym::Iterator);
-        then {
-            let ty = cx.typeck_results().expr_ty(&args[0]);
-            let mut applicability = Applicability::MaybeIncorrect;
-            let is_empty_sugg = "next().is_none()".to_string();
-            let method_name = method.ident.name.as_str();
-            let sugg = if is_type_diagnostic_item(cx, ty, sym::Vec) ||
-                        is_type_diagnostic_item(cx, ty, sym::VecDeque) ||
-                        is_type_diagnostic_item(cx, ty, sym::LinkedList) ||
-                        is_type_diagnostic_item(cx, ty, sym::BinaryHeap) {
-                match method_name {
-                    "len" => "count()".to_string(),
-                    "is_empty" => is_empty_sugg,
-                    "contains" => {
-                        let contains_arg = snippet_with_applicability(cx, args[1].span, "??", &mut applicability);
-                        let (arg, pred) = contains_arg
-                            .strip_prefix('&')
-                            .map_or(("&x", &*contains_arg), |s| ("x", s));
-                        format!("any(|{}| x == {})", arg, pred)
-                    }
-                    _ => return,
+    if let ExprKind::MethodCall(method, args, _) = expr.kind
+        && let ExprKind::MethodCall(chain_method, _, _) = args[0].kind
+        && chain_method.ident.name == sym!(collect) && is_trait_method(cx, &args[0], sym::Iterator)
+    {
+        let ty = cx.typeck_results().expr_ty(&args[0]);
+        let mut applicability = Applicability::MaybeIncorrect;
+        let is_empty_sugg = "next().is_none()".to_string();
+        let method_name = method.ident.name.as_str();
+        let sugg = if is_type_diagnostic_item(cx, ty, sym::Vec) ||
+                    is_type_diagnostic_item(cx, ty, sym::VecDeque) ||
+                    is_type_diagnostic_item(cx, ty, sym::LinkedList) ||
+                    is_type_diagnostic_item(cx, ty, sym::BinaryHeap) {
+            match method_name {
+                "len" => "count()".to_string(),
+                "is_empty" => is_empty_sugg,
+                "contains" => {
+                    let contains_arg = snippet_with_applicability(cx, args[1].span, "??", &mut applicability);
+                    let (arg, pred) = contains_arg
+                        .strip_prefix('&')
+                        .map_or(("&x", &*contains_arg), |s| ("x", s));
+                    format!("any(|{}| x == {})", arg, pred)
                 }
+                _ => return,
             }
-            else if is_type_diagnostic_item(cx, ty, sym::BTreeMap) ||
-                is_type_diagnostic_item(cx, ty, sym::HashMap) {
-                match method_name {
-                    "is_empty" => is_empty_sugg,
-                    _ => return,
-                }
+        } else if is_type_diagnostic_item(cx, ty, sym::BTreeMap) ||
+            is_type_diagnostic_item(cx, ty, sym::HashMap) {
+            match method_name {
+                "is_empty" => is_empty_sugg,
+                _ => return,
             }
-            else {
-                return;
-            };
-            span_lint_and_sugg(
-                cx,
-                NEEDLESS_COLLECT,
-                chain_method.ident.span.with_hi(expr.span.hi()),
-                NEEDLESS_COLLECT_MSG,
-                "replace with",
-                sugg,
-                applicability,
-            );
-        }
+        } else {
+            return;
+        };
+        span_lint_and_sugg(
+            cx,
+            NEEDLESS_COLLECT,
+            chain_method.ident.span.with_hi(expr.span.hi()),
+            NEEDLESS_COLLECT_MSG,
+            "replace with",
+            sugg,
+            applicability,
+        );
     }
 }
 
 fn check_needless_collect_indirect_usage<'tcx>(expr: &'tcx Expr<'_>, cx: &LateContext<'tcx>) {
     if let ExprKind::Block(block, _) = expr.kind {
         for stmt in block.stmts {
-            if_chain! {
-                if let StmtKind::Local(local) = stmt.kind;
-                if let PatKind::Binding(_, id, ..) = local.pat.kind;
-                if let Some(init_expr) = local.init;
-                if let ExprKind::MethodCall(method_name, &[ref iter_source], ..) = init_expr.kind;
-                if method_name.ident.name == sym!(collect) && is_trait_method(cx, init_expr, sym::Iterator);
-                let ty = cx.typeck_results().expr_ty(init_expr);
-                if is_type_diagnostic_item(cx, ty, sym::Vec) ||
+            if let StmtKind::Local(local) = stmt.kind
+                && let PatKind::Binding(_, id, ..) = local.pat.kind
+                && let Some(init_expr) = local.init
+                && let ExprKind::MethodCall(method_name, &[ref iter_source], ..) = init_expr.kind
+                && method_name.ident.name == sym!(collect) && is_trait_method(cx, init_expr, sym::Iterator)
+                && let ty = cx.typeck_results().expr_ty(init_expr)
+                && (is_type_diagnostic_item(cx, ty, sym::Vec) ||
                     is_type_diagnostic_item(cx, ty, sym::VecDeque) ||
                     is_type_diagnostic_item(cx, ty, sym::BinaryHeap) ||
-                    is_type_diagnostic_item(cx, ty, sym::LinkedList);
-                let iter_ty = cx.typeck_results().expr_ty(iter_source);
-                if let Some(iter_calls) = detect_iter_and_into_iters(block, id, cx, get_captured_ids(cx, iter_ty));
-                if let [iter_call] = &*iter_calls;
-                then {
-                    let mut used_count_visitor = UsedCountVisitor {
-                        cx,
-                        id,
-                        count: 0,
-                    };
-                    walk_block(&mut used_count_visitor, block);
-                    if used_count_visitor.count > 1 {
-                        return;
-                    }
-
-                    // Suggest replacing iter_call with iter_replacement, and removing stmt
-                    let mut span = MultiSpan::from_span(method_name.ident.span);
-                    span.push_span_label(iter_call.span, "the iterator could be used here instead");
-                    span_lint_hir_and_then(
-                        cx,
-                        super::NEEDLESS_COLLECT,
-                        init_expr.hir_id,
-                        span,
-                        NEEDLESS_COLLECT_MSG,
-                        |diag| {
-                            let iter_replacement = format!("{}{}", Sugg::hir(cx, iter_source, ".."), iter_call.get_iter_method(cx));
-                            diag.multipart_suggestion(
-                                iter_call.get_suggestion_text(),
-                                vec![
-                                    (stmt.span, String::new()),
-                                    (iter_call.span, iter_replacement)
-                                ],
-                                Applicability::MaybeIncorrect,
-                            );
-                        },
-                    );
+                    is_type_diagnostic_item(cx, ty, sym::LinkedList))
+                && let iter_ty = cx.typeck_results().expr_ty(iter_source)
+                && let Some(iter_calls) = detect_iter_and_into_iters(block, id, cx, get_captured_ids(cx, iter_ty))
+                && let [iter_call] = &*iter_calls
+            {
+                let mut used_count_visitor = UsedCountVisitor {
+                    cx,
+                    id,
+                    count: 0,
+                };
+                walk_block(&mut used_count_visitor, block);
+                if used_count_visitor.count > 1 {
+                    return;
                 }
+
+                // Suggest replacing iter_call with iter_replacement, and removing stmt
+                let mut span = MultiSpan::from_span(method_name.ident.span);
+                span.push_span_label(iter_call.span, "the iterator could be used here instead");
+                span_lint_hir_and_then(
+                    cx,
+                    super::NEEDLESS_COLLECT,
+                    init_expr.hir_id,
+                    span,
+                    NEEDLESS_COLLECT_MSG,
+                    |diag| {
+                        let iter_replacement = format!("{}{}", Sugg::hir(cx, iter_source, ".."), iter_call.get_iter_method(cx));
+                        diag.multipart_suggestion(
+                            iter_call.get_suggestion_text(),
+                            vec![
+                                (stmt.span, String::new()),
+                                (iter_call.span, iter_replacement)
+                            ],
+                            Applicability::MaybeIncorrect,
+                        );
+                    },
+                );
             }
         }
     }

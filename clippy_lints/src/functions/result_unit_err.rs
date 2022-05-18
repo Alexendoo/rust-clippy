@@ -5,8 +5,6 @@ use rustc_middle::ty;
 use rustc_span::{sym, Span};
 use rustc_typeck::hir_ty_to_ty;
 
-use if_chain::if_chain;
-
 use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::trait_ref_of_method;
 use clippy_utils::ty::is_type_diagnostic_item;
@@ -44,23 +42,21 @@ pub(super) fn check_trait_item(cx: &LateContext<'_>, item: &hir::TraitItem<'_>) 
 }
 
 fn check_result_unit_err(cx: &LateContext<'_>, decl: &hir::FnDecl<'_>, item_span: Span, fn_header_span: Span) {
-    if_chain! {
-        if !in_external_macro(cx.sess(), item_span);
-        if let hir::FnRetTy::Return(ty) = decl.output;
-        let ty = hir_ty_to_ty(cx.tcx, ty);
-        if is_type_diagnostic_item(cx, ty, sym::Result);
-        if let ty::Adt(_, substs) = ty.kind();
-        let err_ty = substs.type_at(1);
-        if err_ty.is_unit();
-        then {
-            span_lint_and_help(
-                cx,
-                RESULT_UNIT_ERR,
-                fn_header_span,
-                "this returns a `Result<_, ()>`",
-                None,
-                "use a custom `Error` type instead",
-            );
-        }
+    if !in_external_macro(cx.sess(), item_span)
+        && let hir::FnRetTy::Return(ty) = decl.output
+        && let ty = hir_ty_to_ty(cx.tcx, ty)
+        && is_type_diagnostic_item(cx, ty, sym::Result)
+        && let ty::Adt(_, substs) = ty.kind()
+        && let err_ty = substs.type_at(1)
+        && err_ty.is_unit()
+    {
+        span_lint_and_help(
+            cx,
+            RESULT_UNIT_ERR,
+            fn_header_span,
+            "this returns a `Result<_, ()>`",
+            None,
+            "use a custom `Error` type instead",
+        );
     }
 }

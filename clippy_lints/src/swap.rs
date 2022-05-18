@@ -3,7 +3,6 @@ use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{can_mut_borrow_both, eq_expr_value, std_or_core};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Block, Expr, ExprKind, PatKind, QPath, Stmt, StmtKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -139,29 +138,27 @@ fn generate_swap_warning(cx: &LateContext<'_>, e1: &Expr<'_>, e2: &Expr<'_>, spa
 /// Implementation of the `MANUAL_SWAP` lint.
 fn check_manual_swap(cx: &LateContext<'_>, block: &Block<'_>) {
     for w in block.stmts.windows(3) {
-        if_chain! {
-            // let t = foo();
-            if let StmtKind::Local(tmp) = w[0].kind;
-            if let Some(tmp_init) = tmp.init;
-            if let PatKind::Binding(.., ident, None) = tmp.pat.kind;
+        // let t = foo();
+        if let StmtKind::Local(tmp) = w[0].kind
+            && let Some(tmp_init) = tmp.init
+            && let PatKind::Binding(.., ident, None) = tmp.pat.kind
 
             // foo() = bar();
-            if let StmtKind::Semi(first) = w[1].kind;
-            if let ExprKind::Assign(lhs1, rhs1, _) = first.kind;
+            && let StmtKind::Semi(first) = w[1].kind
+            && let ExprKind::Assign(lhs1, rhs1, _) = first.kind
 
             // bar() = t;
-            if let StmtKind::Semi(second) = w[2].kind;
-            if let ExprKind::Assign(lhs2, rhs2, _) = second.kind;
-            if let ExprKind::Path(QPath::Resolved(None, rhs2)) = rhs2.kind;
-            if rhs2.segments.len() == 1;
+            && let StmtKind::Semi(second) = w[2].kind
+            && let ExprKind::Assign(lhs2, rhs2, _) = second.kind
+            && let ExprKind::Path(QPath::Resolved(None, rhs2)) = rhs2.kind
+            && rhs2.segments.len() == 1
 
-            if ident.name == rhs2.segments[0].ident.name;
-            if eq_expr_value(cx, tmp_init, lhs1);
-            if eq_expr_value(cx, rhs1, lhs2);
-            then {
-                let span = w[0].span.to(second.span);
-                generate_swap_warning(cx, lhs1, lhs2, span, false);
-            }
+            && ident.name == rhs2.segments[0].ident.name
+            && eq_expr_value(cx, tmp_init, lhs1)
+            && eq_expr_value(cx, rhs1, lhs2)
+        {
+            let span = w[0].span.to(second.span);
+            generate_swap_warning(cx, lhs1, lhs2, span, false);
         }
     }
 }
@@ -169,53 +166,51 @@ fn check_manual_swap(cx: &LateContext<'_>, block: &Block<'_>) {
 /// Implementation of the `ALMOST_SWAPPED` lint.
 fn check_suspicious_swap(cx: &LateContext<'_>, block: &Block<'_>) {
     for w in block.stmts.windows(2) {
-        if_chain! {
-            if let StmtKind::Semi(first) = w[0].kind;
-            if let StmtKind::Semi(second) = w[1].kind;
-            if first.span.ctxt() == second.span.ctxt();
-            if let ExprKind::Assign(lhs0, rhs0, _) = first.kind;
-            if let ExprKind::Assign(lhs1, rhs1, _) = second.kind;
-            if eq_expr_value(cx, lhs0, rhs1);
-            if eq_expr_value(cx, lhs1, rhs0);
-            then {
-                let lhs0 = Sugg::hir_opt(cx, lhs0);
-                let rhs0 = Sugg::hir_opt(cx, rhs0);
-                let (what, lhs, rhs) = if let (Some(first), Some(second)) = (lhs0, rhs0) {
-                    (
-                        format!(" `{}` and `{}`", first, second),
-                        first.mut_addr().to_string(),
-                        second.mut_addr().to_string(),
-                    )
-                } else {
-                    (String::new(), String::new(), String::new())
-                };
+        if let StmtKind::Semi(first) = w[0].kind
+            && let StmtKind::Semi(second) = w[1].kind
+            && first.span.ctxt() == second.span.ctxt()
+            && let ExprKind::Assign(lhs0, rhs0, _) = first.kind
+            && let ExprKind::Assign(lhs1, rhs1, _) = second.kind
+            && eq_expr_value(cx, lhs0, rhs1)
+            && eq_expr_value(cx, lhs1, rhs0)
+        {
+            let lhs0 = Sugg::hir_opt(cx, lhs0);
+            let rhs0 = Sugg::hir_opt(cx, rhs0);
+            let (what, lhs, rhs) = if let (Some(first), Some(second)) = (lhs0, rhs0) {
+                (
+                    format!(" `{}` and `{}`", first, second),
+                    first.mut_addr().to_string(),
+                    second.mut_addr().to_string(),
+                )
+            } else {
+                (String::new(), String::new(), String::new())
+            };
 
-                let span = first.span.to(second.span);
-                let Some(sugg) = std_or_core(cx) else { return };
+            let span = first.span.to(second.span);
+            let Some(sugg) = std_or_core(cx) else { return };
 
-                span_lint_and_then(cx,
-                    ALMOST_SWAPPED,
-                    span,
-                    &format!("this looks like you are trying to swap{}", what),
-                    |diag| {
-                        if !what.is_empty() {
-                            diag.span_suggestion(
-                                span,
-                                "try",
-                                format!(
-                                    "{}::mem::swap({}, {})",
-                                    sugg,
-                                    lhs,
-                                    rhs,
-                                ),
-                                Applicability::MaybeIncorrect,
-                            );
-                            diag.note(
-                                &format!("or maybe you should use `{}::mem::replace`?", sugg)
-                            );
-                        }
-                    });
-            }
+            span_lint_and_then(cx,
+                ALMOST_SWAPPED,
+                span,
+                &format!("this looks like you are trying to swap{}", what),
+                |diag| {
+                    if !what.is_empty() {
+                        diag.span_suggestion(
+                            span,
+                            "try",
+                            format!(
+                                "{}::mem::swap({}, {})",
+                                sugg,
+                                lhs,
+                                rhs,
+                            ),
+                            Applicability::MaybeIncorrect,
+                        );
+                        diag.note(
+                            &format!("or maybe you should use `{}::mem::replace`?", sugg)
+                        );
+                    }
+                });
         }
     }
 }
@@ -223,18 +218,16 @@ fn check_suspicious_swap(cx: &LateContext<'_>, block: &Block<'_>) {
 /// Implementation of the xor case for `MANUAL_SWAP` lint.
 fn check_xor_swap(cx: &LateContext<'_>, block: &Block<'_>) {
     for window in block.stmts.windows(3) {
-        if_chain! {
-            if let Some((lhs0, rhs0)) = extract_sides_of_xor_assign(&window[0]);
-            if let Some((lhs1, rhs1)) = extract_sides_of_xor_assign(&window[1]);
-            if let Some((lhs2, rhs2)) = extract_sides_of_xor_assign(&window[2]);
-            if eq_expr_value(cx, lhs0, rhs1);
-            if eq_expr_value(cx, lhs2, rhs1);
-            if eq_expr_value(cx, lhs1, rhs0);
-            if eq_expr_value(cx, lhs1, rhs2);
-            then {
-                let span = window[0].span.to(window[2].span);
-                generate_swap_warning(cx, lhs0, rhs0, span, true);
-            }
+        if let Some((lhs0, rhs0)) = extract_sides_of_xor_assign(&window[0])
+            && let Some((lhs1, rhs1)) = extract_sides_of_xor_assign(&window[1])
+            && let Some((lhs2, rhs2)) = extract_sides_of_xor_assign(&window[2])
+            && eq_expr_value(cx, lhs0, rhs1)
+            && eq_expr_value(cx, lhs2, rhs1)
+            && eq_expr_value(cx, lhs1, rhs0)
+            && eq_expr_value(cx, lhs1, rhs2)
+        {
+            let span = window[0].span.to(window[2].span);
+            generate_swap_warning(cx, lhs0, rhs0, span, true);
         };
     }
 }

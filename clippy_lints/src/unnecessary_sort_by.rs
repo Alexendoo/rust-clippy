@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::{implements_trait, is_type_diagnostic_item};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, Mutability, Param, Pat, PatKind, Path, PathSegment, QPath};
 use rustc_lint::{LateContext, LateLintPass};
@@ -151,57 +150,53 @@ fn mirrored_exprs(a_expr: &Expr<'_>, a_ident: &Ident, b_expr: &Expr<'_>, b_ident
 }
 
 fn detect_lint(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<LintTrigger> {
-    if_chain! {
-        if let ExprKind::MethodCall(name_ident, args, _) = &expr.kind;
-        if let name = name_ident.ident.name.to_ident_string();
-        if name == "sort_by" || name == "sort_unstable_by";
-        if let [vec, Expr { kind: ExprKind::Closure(_, _, closure_body_id, _, _), .. }] = args;
-        if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(vec), sym::Vec);
-        if let closure_body = cx.tcx.hir().body(*closure_body_id);
-        if let &[
+    if let ExprKind::MethodCall(name_ident, args, _) = &expr.kind
+        && let name = name_ident.ident.name.to_ident_string()
+        && (name == "sort_by" || name == "sort_unstable_by")
+        && let [vec, Expr { kind: ExprKind::Closure(_, _, closure_body_id, _, _), .. }] = args
+        && is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(vec), sym::Vec)
+        && let closure_body = cx.tcx.hir().body(*closure_body_id)
+        && let &[
             Param { pat: Pat { kind: PatKind::Binding(_, _, left_ident, _), .. }, ..},
             Param { pat: Pat { kind: PatKind::Binding(_, _, right_ident, _), .. }, .. }
-        ] = &closure_body.params;
-        if let ExprKind::MethodCall(method_path, [ref left_expr, ref right_expr], _) = &closure_body.value.kind;
-        if method_path.ident.name == sym::cmp;
-        then {
-            let (closure_body, closure_arg, reverse) = if mirrored_exprs(
-                left_expr,
-                left_ident,
-                right_expr,
-                right_ident
-            ) {
-                (Sugg::hir(cx, left_expr, "..").to_string(), left_ident.name.to_string(), false)
-            } else if mirrored_exprs(left_expr, right_ident, right_expr, left_ident) {
-                (Sugg::hir(cx, left_expr, "..").to_string(), right_ident.name.to_string(), true)
-            } else {
-                return None;
-            };
-            let vec_name = Sugg::hir(cx, &args[0], "..").to_string();
-            let unstable = name == "sort_unstable_by";
+        ] = &closure_body.params
+        && let ExprKind::MethodCall(method_path, [ref left_expr, ref right_expr], _) = &closure_body.value.kind
+        && method_path.ident.name == sym::cmp
+    {
+        let (closure_body, closure_arg, reverse) = if mirrored_exprs(
+            left_expr,
+            left_ident,
+            right_expr,
+            right_ident
+        ) {
+            (Sugg::hir(cx, left_expr, "..").to_string(), left_ident.name.to_string(), false)
+        } else if mirrored_exprs(left_expr, right_ident, right_expr, left_ident) {
+            (Sugg::hir(cx, left_expr, "..").to_string(), right_ident.name.to_string(), true)
+        } else {
+            return None;
+        };
+        let vec_name = Sugg::hir(cx, &args[0], "..").to_string();
+        let unstable = name == "sort_unstable_by";
 
-            if_chain! {
-            if let ExprKind::Path(QPath::Resolved(_, Path {
-                segments: [PathSegment { ident: left_name, .. }], ..
-            })) = &left_expr.kind;
-            if left_name == left_ident;
-            if cx.tcx.get_diagnostic_item(sym::Ord).map_or(false, |id| {
-                implements_trait(cx, cx.typeck_results().expr_ty(left_expr), id, &[])
-            });
-                then {
-                    return Some(LintTrigger::Sort(SortDetection { vec_name, unstable }));
-                }
-            }
+        if let ExprKind::Path(QPath::Resolved(_, Path {
+            segments: [PathSegment { ident: left_name, .. }], ..
+        })) = &left_expr.kind
+        && left_name == left_ident
+        && cx.tcx.get_diagnostic_item(sym::Ord).map_or(false, |id| {
+            implements_trait(cx, cx.typeck_results().expr_ty(left_expr), id, &[])
+        })
+        {
+            return Some(LintTrigger::Sort(SortDetection { vec_name, unstable }));
+        }
 
-            if !expr_borrows(cx, left_expr) {
-                return Some(LintTrigger::SortByKey(SortByKeyDetection {
-                    vec_name,
-                    closure_arg,
-                    closure_body,
-                    reverse,
-                    unstable,
-                }));
-            }
+        if !expr_borrows(cx, left_expr) {
+            return Some(LintTrigger::SortByKey(SortByKeyDetection {
+                vec_name,
+                closure_arg,
+                closure_body,
+                reverse,
+                unstable,
+            }));
         }
     }
 

@@ -21,16 +21,14 @@ pub(super) fn check<'tcx>(
     map_arg: &[hir::Expr<'_>],
 ) {
     // Check if it's iterator and get type associated with `Item`.
-    let inner_ty = if_chain! {
-        if let Some(iterator_trait_id) = cx.tcx.get_diagnostic_item(sym::Iterator);
-        let recv_ty = cx.typeck_results().expr_ty(recv);
-        if implements_trait(cx, recv_ty, iterator_trait_id, &[]);
-        if let Some(inner_ty) = get_iterator_item_ty(cx, cx.typeck_results().expr_ty_adjusted(recv));
-        then {
-            inner_ty
-        } else {
-            return;
-        }
+    let inner_ty = if let Some(iterator_trait_id) = cx.tcx.get_diagnostic_item(sym::Iterator)
+        && let recv_ty = cx.typeck_results().expr_ty(recv)
+        && implements_trait(cx, recv_ty, iterator_trait_id, &[])
+        && let Some(inner_ty) = get_iterator_item_ty(cx, cx.typeck_results().expr_ty_adjusted(recv))
+    {
+        inner_ty
+    } else {
+        return;
     };
 
     match inner_ty.kind() {

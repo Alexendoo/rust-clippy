@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{match_def_path, meets_msrv, msrvs, path_to_local_id, paths, peel_blocks};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_lint::LateContext;
@@ -57,33 +56,29 @@ pub(super) fn check<'tcx>(
 
             match &closure_expr.kind {
                 hir::ExprKind::MethodCall(_, args, _) => {
-                    if_chain! {
-                        if args.len() == 1;
-                        if path_to_local_id(&args[0], closure_body.params[0].pat.hir_id);
-                        let adj = cx
+                    if args.len() == 1
+                        && path_to_local_id(&args[0], closure_body.params[0].pat.hir_id)
+                        && let adj = cx
                             .typeck_results()
                             .expr_adjustments(&args[0])
                             .iter()
                             .map(|x| &x.kind)
-                            .collect::<Box<[_]>>();
-                        if let [ty::adjustment::Adjust::Deref(None), ty::adjustment::Adjust::Borrow(_)] = *adj;
-                        then {
-                            let method_did = cx.typeck_results().type_dependent_def_id(closure_expr.hir_id).unwrap();
-                            deref_aliases.iter().any(|path| match_def_path(cx, method_did, path))
-                        } else {
-                            false
-                        }
+                            .collect::<Box<[_]>>()
+                        && let [ty::adjustment::Adjust::Deref(None), ty::adjustment::Adjust::Borrow(_)] = *adj
+                    {
+                        let method_did = cx.typeck_results().type_dependent_def_id(closure_expr.hir_id).unwrap();
+                        deref_aliases.iter().any(|path| match_def_path(cx, method_did, path))
+                    } else {
+                        false
                     }
                 },
                 hir::ExprKind::AddrOf(hir::BorrowKind::Ref, m, inner) if same_mutability(m) => {
-                    if_chain! {
-                        if let hir::ExprKind::Unary(hir::UnOp::Deref, inner1) = inner.kind;
-                        if let hir::ExprKind::Unary(hir::UnOp::Deref, inner2) = inner1.kind;
-                        then {
-                            path_to_local_id(inner2, closure_body.params[0].pat.hir_id)
-                        } else {
-                            false
-                        }
+                    if let hir::ExprKind::Unary(hir::UnOp::Deref, inner1) = inner.kind
+                        && let hir::ExprKind::Unary(hir::UnOp::Deref, inner2) = inner1.kind
+                    {
+                        path_to_local_id(inner2, closure_body.params[0].pat.hir_id)
+                    } else {
+                        false
                     }
                 },
                 _ => false,

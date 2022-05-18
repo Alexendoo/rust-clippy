@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::higher;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::SpanlessEq;
-use if_chain::if_chain;
 use rustc_hir::intravisit::{self as visit, Visitor};
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -126,15 +125,13 @@ impl<'tcx, 'l> ArmVisitor<'tcx, 'l> {
 }
 
 fn is_mutex_lock_call<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) -> Option<&'tcx Expr<'tcx>> {
-    if_chain! {
-        if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind;
-        if path.ident.as_str() == "lock";
-        let ty = cx.typeck_results().expr_ty(self_arg);
-        if is_type_diagnostic_item(cx, ty, sym::Mutex);
-        then {
-            Some(self_arg)
-        } else {
-            None
-        }
+    if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind
+        && path.ident.as_str() == "lock"
+        && let ty = cx.typeck_results().expr_ty(self_arg)
+        && is_type_diagnostic_item(cx, ty, sym::Mutex)
+    {
+        Some(self_arg)
+    } else {
+        None
     }
 }

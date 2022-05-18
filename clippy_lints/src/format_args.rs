@@ -3,7 +3,6 @@ use clippy_utils::is_diag_trait_item;
 use clippy_utils::macros::{is_format_macro, FormatArgsArg, FormatArgsExpn};
 use clippy_utils::source::snippet_opt;
 use clippy_utils::ty::implements_trait;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -67,28 +66,26 @@ declare_lint_pass!(FormatArgs => [FORMAT_IN_FORMAT_ARGS, TO_STRING_IN_FORMAT_ARG
 
 impl<'tcx> LateLintPass<'tcx> for FormatArgs {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if_chain! {
-            if let Some(format_args) = FormatArgsExpn::parse(cx, expr);
-            let expr_expn_data = expr.span.ctxt().outer_expn_data();
-            let outermost_expn_data = outermost_expn_data(expr_expn_data);
-            if let Some(macro_def_id) = outermost_expn_data.macro_def_id;
-            if is_format_macro(cx, macro_def_id);
-            if let ExpnKind::Macro(_, name) = outermost_expn_data.kind;
-            if let Some(args) = format_args.args();
-            then {
-                for (i, arg) in args.iter().enumerate() {
-                    if arg.format_trait != sym::Display {
-                        continue;
-                    }
-                    if arg.has_string_formatting() {
-                        continue;
-                    }
-                    if is_aliased(&args, i) {
-                        continue;
-                    }
-                    check_format_in_format_args(cx, outermost_expn_data.call_site, name, arg.value);
-                    check_to_string_in_format_args(cx, name, arg.value);
+        if let Some(format_args) = FormatArgsExpn::parse(cx, expr)
+            && let expr_expn_data = expr.span.ctxt().outer_expn_data()
+            && let outermost_expn_data = outermost_expn_data(expr_expn_data)
+            && let Some(macro_def_id) = outermost_expn_data.macro_def_id
+            && is_format_macro(cx, macro_def_id)
+            && let ExpnKind::Macro(_, name) = outermost_expn_data.kind
+            && let Some(args) = format_args.args()
+        {
+            for (i, arg) in args.iter().enumerate() {
+                if arg.format_trait != sym::Display {
+                    continue;
                 }
+                if arg.has_string_formatting() {
+                    continue;
+                }
+                if is_aliased(&args, i) {
+                    continue;
+                }
+                check_format_in_format_args(cx, outermost_expn_data.call_site, name, arg.value);
+                check_to_string_in_format_args(cx, name, arg.value);
             }
         }
     }
@@ -127,41 +124,39 @@ fn check_format_in_format_args(cx: &LateContext<'_>, call_site: Span, name: Symb
 }
 
 fn check_to_string_in_format_args(cx: &LateContext<'_>, name: Symbol, value: &Expr<'_>) {
-    if_chain! {
-        if !value.span.from_expansion();
-        if let ExprKind::MethodCall(_, [receiver], _) = value.kind;
-        if let Some(method_def_id) = cx.typeck_results().type_dependent_def_id(value.hir_id);
-        if is_diag_trait_item(cx, method_def_id, sym::ToString);
-        let receiver_ty = cx.typeck_results().expr_ty(receiver);
-        if let Some(display_trait_id) = cx.tcx.get_diagnostic_item(sym::Display);
-        if let Some(receiver_snippet) = snippet_opt(cx, receiver.span);
-        then {
-            let (n_needed_derefs, target) = count_needed_derefs(
-                receiver_ty,
-                cx.typeck_results().expr_adjustments(receiver).iter(),
-            );
-            if implements_trait(cx, target, display_trait_id, &[]) {
-                if n_needed_derefs == 0 {
-                    span_lint_and_sugg(
-                        cx,
-                        TO_STRING_IN_FORMAT_ARGS,
-                        value.span.with_lo(receiver.span.hi()),
-                        &format!("`to_string` applied to a type that implements `Display` in `{}!` args", name),
-                        "remove this",
-                        String::new(),
-                        Applicability::MachineApplicable,
-                    );
-                } else {
-                    span_lint_and_sugg(
-                        cx,
-                        TO_STRING_IN_FORMAT_ARGS,
-                        value.span,
-                        &format!("`to_string` applied to a type that implements `Display` in `{}!` args", name),
-                        "use this",
-                        format!("{:*>width$}{}", "", receiver_snippet, width = n_needed_derefs),
-                        Applicability::MachineApplicable,
-                    );
-                }
+    if !value.span.from_expansion()
+        && let ExprKind::MethodCall(_, [receiver], _) = value.kind
+        && let Some(method_def_id) = cx.typeck_results().type_dependent_def_id(value.hir_id)
+        && is_diag_trait_item(cx, method_def_id, sym::ToString)
+        && let receiver_ty = cx.typeck_results().expr_ty(receiver)
+        && let Some(display_trait_id) = cx.tcx.get_diagnostic_item(sym::Display)
+        && let Some(receiver_snippet) = snippet_opt(cx, receiver.span)
+    {
+        let (n_needed_derefs, target) = count_needed_derefs(
+            receiver_ty,
+            cx.typeck_results().expr_adjustments(receiver).iter(),
+        );
+        if implements_trait(cx, target, display_trait_id, &[]) {
+            if n_needed_derefs == 0 {
+                span_lint_and_sugg(
+                    cx,
+                    TO_STRING_IN_FORMAT_ARGS,
+                    value.span.with_lo(receiver.span.hi()),
+                    &format!("`to_string` applied to a type that implements `Display` in `{}!` args", name),
+                    "remove this",
+                    String::new(),
+                    Applicability::MachineApplicable,
+                );
+            } else {
+                span_lint_and_sugg(
+                    cx,
+                    TO_STRING_IN_FORMAT_ARGS,
+                    value.span,
+                    &format!("`to_string` applied to a type that implements `Display` in `{}!` args", name),
+                    "use this",
+                    format!("{:*>width$}{}", "", receiver_snippet, width = n_needed_derefs),
+                    Applicability::MachineApplicable,
+                );
             }
         }
     }

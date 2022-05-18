@@ -4,7 +4,6 @@ use clippy_utils::source::{snippet, snippet_opt, snippet_with_applicability};
 use clippy_utils::sugg::Sugg;
 use clippy_utils::{get_parent_expr, in_constant, is_integer_const, meets_msrv, msrvs, path_to_local};
 use clippy_utils::{higher, SpanlessEq};
-use if_chain::if_chain;
 use rustc_ast::ast::RangeLimits;
 use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Expr, ExprKind, HirId, PathSegment, QPath};
@@ -348,105 +347,99 @@ fn check_range_bounds<'a>(cx: &'a LateContext<'_>, ex: &'a Expr<'_>) -> Option<R
 }
 
 fn check_range_zip_with_len(cx: &LateContext<'_>, path: &PathSegment<'_>, args: &[Expr<'_>], span: Span) {
-    if_chain! {
-        if path.ident.as_str() == "zip";
-        if let [iter, zip_arg] = args;
+    if path.ident.as_str() == "zip"
+        && let [iter, zip_arg] = args
         // `.iter()` call
-        if let ExprKind::MethodCall(iter_path, iter_args, _) = iter.kind;
-        if iter_path.ident.name == sym::iter;
+        && let ExprKind::MethodCall(iter_path, iter_args, _) = iter.kind
+        && iter_path.ident.name == sym::iter
         // range expression in `.zip()` call: `0..x.len()`
-        if let Some(higher::Range { start: Some(start), end: Some(end), .. }) = higher::Range::hir(zip_arg);
-        if is_integer_const(cx, start, 0);
+        && let Some(higher::Range { start: Some(start), end: Some(end), .. }) = higher::Range::hir(zip_arg)
+        && is_integer_const(cx, start, 0)
         // `.len()` call
-        if let ExprKind::MethodCall(len_path, len_args, _) = end.kind;
-        if len_path.ident.name == sym::len && len_args.len() == 1;
+        && let ExprKind::MethodCall(len_path, len_args, _) = end.kind
+        && len_path.ident.name == sym::len && len_args.len() == 1
         // `.iter()` and `.len()` called on same `Path`
-        if let ExprKind::Path(QPath::Resolved(_, iter_path)) = iter_args[0].kind;
-        if let ExprKind::Path(QPath::Resolved(_, len_path)) = len_args[0].kind;
-        if SpanlessEq::new(cx).eq_path_segments(iter_path.segments, len_path.segments);
-        then {
-            span_lint(cx,
-                RANGE_ZIP_WITH_LEN,
-                span,
-                &format!("it is more idiomatic to use `{}.iter().enumerate()`",
-                    snippet(cx, iter_args[0].span, "_"))
-            );
-        }
+        && let ExprKind::Path(QPath::Resolved(_, iter_path)) = iter_args[0].kind
+        && let ExprKind::Path(QPath::Resolved(_, len_path)) = len_args[0].kind
+        && SpanlessEq::new(cx).eq_path_segments(iter_path.segments, len_path.segments)
+    {
+        span_lint(cx,
+            RANGE_ZIP_WITH_LEN,
+            span,
+            &format!("it is more idiomatic to use `{}.iter().enumerate()`",
+                snippet(cx, iter_args[0].span, "_"))
+        );
     }
 }
 
 // exclusive range plus one: `x..(y+1)`
 fn check_exclusive_range_plus_one(cx: &LateContext<'_>, expr: &Expr<'_>) {
-    if_chain! {
-        if let Some(higher::Range {
+    if let Some(higher::Range {
             start,
             end: Some(end),
             limits: RangeLimits::HalfOpen
-        }) = higher::Range::hir(expr);
-        if let Some(y) = y_plus_one(cx, end);
-        then {
-            let span = if expr.span.from_expansion() {
-                expr.span
-                    .ctxt()
-                    .outer_expn_data()
-                    .call_site
-            } else {
-                expr.span
-            };
-            span_lint_and_then(
-                cx,
-                RANGE_PLUS_ONE,
-                span,
-                "an inclusive range would be more readable",
-                |diag| {
-                    let start = start.map_or(String::new(), |x| Sugg::hir(cx, x, "x").maybe_par().to_string());
-                    let end = Sugg::hir(cx, y, "y").maybe_par();
-                    if let Some(is_wrapped) = &snippet_opt(cx, span) {
-                        if is_wrapped.starts_with('(') && is_wrapped.ends_with(')') {
-                            diag.span_suggestion(
-                                span,
-                                "use",
-                                format!("({}..={})", start, end),
-                                Applicability::MaybeIncorrect,
-                            );
-                        } else {
-                            diag.span_suggestion(
-                                span,
-                                "use",
-                                format!("{}..={}", start, end),
-                                Applicability::MachineApplicable, // snippet
-                            );
-                        }
+        }) = higher::Range::hir(expr)
+        && let Some(y) = y_plus_one(cx, end)
+    {
+        let span = if expr.span.from_expansion() {
+            expr.span
+                .ctxt()
+                .outer_expn_data()
+                .call_site
+        } else {
+            expr.span
+        };
+        span_lint_and_then(
+            cx,
+            RANGE_PLUS_ONE,
+            span,
+            "an inclusive range would be more readable",
+            |diag| {
+                let start = start.map_or(String::new(), |x| Sugg::hir(cx, x, "x").maybe_par().to_string());
+                let end = Sugg::hir(cx, y, "y").maybe_par();
+                if let Some(is_wrapped) = &snippet_opt(cx, span) {
+                    if is_wrapped.starts_with('(') && is_wrapped.ends_with(')') {
+                        diag.span_suggestion(
+                            span,
+                            "use",
+                            format!("({}..={})", start, end),
+                            Applicability::MaybeIncorrect,
+                        );
+                    } else {
+                        diag.span_suggestion(
+                            span,
+                            "use",
+                            format!("{}..={}", start, end),
+                            Applicability::MachineApplicable, // snippet
+                        );
                     }
-                },
-            );
-        }
+                }
+            },
+        );
     }
 }
 
 // inclusive range minus one: `x..=(y-1)`
 fn check_inclusive_range_minus_one(cx: &LateContext<'_>, expr: &Expr<'_>) {
-    if_chain! {
-        if let Some(higher::Range { start, end: Some(end), limits: RangeLimits::Closed }) = higher::Range::hir(expr);
-        if let Some(y) = y_minus_one(cx, end);
-        then {
-            span_lint_and_then(
-                cx,
-                RANGE_MINUS_ONE,
-                expr.span,
-                "an exclusive range would be more readable",
-                |diag| {
-                    let start = start.map_or(String::new(), |x| Sugg::hir(cx, x, "x").maybe_par().to_string());
-                    let end = Sugg::hir(cx, y, "y").maybe_par();
-                    diag.span_suggestion(
-                        expr.span,
-                        "use",
-                        format!("{}..{}", start, end),
-                        Applicability::MachineApplicable, // snippet
-                    );
-                },
-            );
-        }
+    if let Some(higher::Range { start, end: Some(end), limits: RangeLimits::Closed }) = higher::Range::hir(expr)
+        && let Some(y) = y_minus_one(cx, end)
+    {
+        span_lint_and_then(
+            cx,
+            RANGE_MINUS_ONE,
+            expr.span,
+            "an exclusive range would be more readable",
+            |diag| {
+                let start = start.map_or(String::new(), |x| Sugg::hir(cx, x, "x").maybe_par().to_string());
+                let end = Sugg::hir(cx, y, "y").maybe_par();
+                diag.span_suggestion(
+                    expr.span,
+                    "use",
+                    format!("{}..{}", start, end),
+                    Applicability::MachineApplicable, // snippet
+                );
+            },
+        );
     }
 }
 
@@ -480,52 +473,50 @@ fn check_reversed_empty_range(cx: &LateContext<'_>, expr: &Expr<'_>) {
         }
     }
 
-    if_chain! {
-        if let Some(higher::Range { start: Some(start), end: Some(end), limits }) = higher::Range::hir(expr);
-        let ty = cx.typeck_results().expr_ty(start);
-        if let ty::Int(_) | ty::Uint(_) = ty.kind();
-        if let Some((start_idx, _)) = constant(cx, cx.typeck_results(), start);
-        if let Some((end_idx, _)) = constant(cx, cx.typeck_results(), end);
-        if let Some(ordering) = Constant::partial_cmp(cx.tcx, ty, &start_idx, &end_idx);
-        if is_empty_range(limits, ordering);
-        then {
-            if inside_indexing_expr(cx, expr) {
-                // Avoid linting `N..N` as it has proven to be useful, see #5689 and #5628 ...
-                if ordering != Ordering::Equal {
-                    span_lint(
-                        cx,
-                        REVERSED_EMPTY_RANGES,
-                        expr.span,
-                        "this range is reversed and using it to index a slice will panic at run-time",
-                    );
-                }
-            // ... except in for loop arguments for backwards compatibility with `reverse_range_loop`
-            } else if ordering != Ordering::Equal || is_for_loop_arg(cx, expr) {
-                span_lint_and_then(
+    if let Some(higher::Range { start: Some(start), end: Some(end), limits }) = higher::Range::hir(expr)
+        && let ty = cx.typeck_results().expr_ty(start)
+        && let ty::Int(_) | ty::Uint(_) = ty.kind()
+        && let Some((start_idx, _)) = constant(cx, cx.typeck_results(), start)
+        && let Some((end_idx, _)) = constant(cx, cx.typeck_results(), end)
+        && let Some(ordering) = Constant::partial_cmp(cx.tcx, ty, &start_idx, &end_idx)
+        && is_empty_range(limits, ordering)
+    {
+        if inside_indexing_expr(cx, expr) {
+            // Avoid linting `N..N` as it has proven to be useful, see #5689 and #5628 ...
+            if ordering != Ordering::Equal {
+                span_lint(
                     cx,
                     REVERSED_EMPTY_RANGES,
                     expr.span,
-                    "this range is empty so it will yield no values",
-                    |diag| {
-                        if ordering != Ordering::Equal {
-                            let start_snippet = snippet(cx, start.span, "_");
-                            let end_snippet = snippet(cx, end.span, "_");
-                            let dots = match limits {
-                                RangeLimits::HalfOpen => "..",
-                                RangeLimits::Closed => "..="
-                            };
-
-                            diag.span_suggestion(
-                                expr.span,
-                                "consider using the following if you are attempting to iterate over this \
-                                 range in reverse",
-                                format!("({}{}{}).rev()", end_snippet, dots, start_snippet),
-                                Applicability::MaybeIncorrect,
-                            );
-                        }
-                    },
+                    "this range is reversed and using it to index a slice will panic at run-time",
                 );
             }
+        // ... except in for loop arguments for backwards compatibility with `reverse_range_loop`
+        } else if ordering != Ordering::Equal || is_for_loop_arg(cx, expr) {
+            span_lint_and_then(
+                cx,
+                REVERSED_EMPTY_RANGES,
+                expr.span,
+                "this range is empty so it will yield no values",
+                |diag| {
+                    if ordering != Ordering::Equal {
+                        let start_snippet = snippet(cx, start.span, "_");
+                        let end_snippet = snippet(cx, end.span, "_");
+                        let dots = match limits {
+                            RangeLimits::HalfOpen => "..",
+                            RangeLimits::Closed => "..="
+                        };
+
+                        diag.span_suggestion(
+                            expr.span,
+                            "consider using the following if you are attempting to iterate over this \
+                             range in reverse",
+                            format!("({}{}{}).rev()", end_snippet, dots, start_snippet),
+                            Applicability::MaybeIncorrect,
+                        );
+                    }
+                },
+            );
         }
     }
 }

@@ -17,30 +17,28 @@ pub(super) fn check(
     expect_span: Span,
     err_span: Span,
 ) {
-    if_chain! {
-        if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(recv), sym::Result);
+    if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(recv), sym::Result)
         // Test the version to make sure the lint can be showed (expect_err has been
         // introduced in rust 1.17.0 : https://github.com/rust-lang/rust/pull/38982)
-        if meets_msrv(msrv, msrvs::EXPECT_ERR);
+        && meets_msrv(msrv, msrvs::EXPECT_ERR)
 
         // Grabs the `Result<T, E>` type
-        let result_type = cx.typeck_results().expr_ty(recv);
+        && let result_type = cx.typeck_results().expr_ty(recv)
         // Tests if the T type in a `Result<T, E>` is not None
-        if let Some(data_type) = get_data_type(cx, result_type);
+        && let Some(data_type) = get_data_type(cx, result_type)
         // Tests if the T type in a `Result<T, E>` implements debug
-        if has_debug_impl(data_type, cx);
+        && has_debug_impl(data_type, cx)
 
-        then {
-            span_lint_and_sugg(
-                cx,
-                ERR_EXPECT,
-                err_span.to(expect_span),
-                "called `.err().expect()` on a `Result` value",
-                "try",
-                "expect_err".to_string(),
-                Applicability::MachineApplicable
-        );
-        }
+    {
+        span_lint_and_sugg(
+            cx,
+            ERR_EXPECT,
+            err_span.to(expect_span),
+            "called `.err().expect()` on a `Result` value",
+            "try",
+            "expect_err".to_string(),
+            Applicability::MachineApplicable
+    );
     };
 }
 

@@ -483,25 +483,21 @@ impl<'tcx> SideEffectVisit<'tcx> {
 
         let mut is_recursive = false;
 
-        if_chain! {
-            if !self.has_self;
-            if let ExprKind::Path(QPath::Resolved(_, path)) = callee.kind;
-            if let Res::Def(DefKind::Fn, def_id) = path.res;
-            if self.fn_def_id == def_id;
-            then {
-                is_recursive = true;
-            }
+        if !self.has_self
+            && let ExprKind::Path(QPath::Resolved(_, path)) = callee.kind
+            && let Res::Def(DefKind::Fn, def_id) = path.res
+            && self.fn_def_id == def_id
+        {
+            is_recursive = true;
         }
 
-        if_chain! {
-            if !self.has_self && self.is_method;
-            if let ExprKind::Path(QPath::TypeRelative(ty, segment)) = callee.kind;
-            if segment.ident == self.fn_ident;
-            if let TyKind::Path(QPath::Resolved(_, path)) = ty.kind;
-            if let Res::SelfTy{ .. } = path.res;
-            then {
-                is_recursive = true;
-            }
+        if !self.has_self && self.is_method
+            && let ExprKind::Path(QPath::TypeRelative(ty, segment)) = callee.kind
+            && segment.ident == self.fn_ident
+            && let TyKind::Path(QPath::Resolved(_, path)) = ty.kind
+            && let Res::SelfTy{ .. } = path.res
+        {
+            is_recursive = true;
         }
 
         if is_recursive {
@@ -534,35 +530,33 @@ impl<'tcx> SideEffectVisit<'tcx> {
     }
 
     fn visit_method_call(&mut self, path: &'tcx PathSegment<'tcx>, args: &'tcx [Expr<'tcx>]) {
-        if_chain! {
-            if self.is_method;
-            if path.ident == self.fn_ident;
-            if let ExprKind::Path(QPath::Resolved(_, path)) = args.first().unwrap().kind;
-            if let Res::Local(..) = path.res;
-            let ident = path.segments.last().unwrap().ident;
-            if ident.name == kw::SelfLower;
-            then {
-                izip!(self.params.clone(), args.iter())
-                    .for_each(|(pat, expr)| {
-                        self.visit_pat_expr(pat, expr, true);
-                        self.ret_vars.clear();
-                    });
-            } else {
-                self.ret_vars = args
-                    .iter()
-                    .flat_map(|expr| {
-                        self.visit_expr(expr);
-                        std::mem::take(&mut self.ret_vars)
-                    })
-                    .collect_vec()
-                    .into_iter()
-                    .map(|a| {
-                        self.has_side_effect.insert(a.0);
-                        a
-                    })
-                    .collect();
-                self.contains_side_effect = true;
-            }
+        if self.is_method
+            && path.ident == self.fn_ident
+            && let ExprKind::Path(QPath::Resolved(_, path)) = args.first().unwrap().kind
+            && let Res::Local(..) = path.res
+            && let ident = path.segments.last().unwrap().ident
+            && ident.name == kw::SelfLower
+        {
+            izip!(self.params.clone(), args.iter())
+                .for_each(|(pat, expr)| {
+                    self.visit_pat_expr(pat, expr, true);
+                    self.ret_vars.clear();
+                });
+        } else {
+            self.ret_vars = args
+                .iter()
+                .flat_map(|expr| {
+                    self.visit_expr(expr);
+                    std::mem::take(&mut self.ret_vars)
+                })
+                .collect_vec()
+                .into_iter()
+                .map(|a| {
+                    self.has_side_effect.insert(a.0);
+                    a
+                })
+                .collect();
+            self.contains_side_effect = true;
         }
     }
 

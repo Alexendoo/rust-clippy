@@ -5,7 +5,6 @@ use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet;
 use clippy_utils::ty::is_copy;
 use clippy_utils::{is_self, is_self_ty};
-use if_chain::if_chain;
 use rustc_ast::attr;
 use rustc_errors::Applicability;
 use rustc_hir as hir;
@@ -165,28 +164,26 @@ impl<'tcx> PassByRefOrValue {
                         _ => vec![],
                     };
 
-                    if_chain! {
-                        if !output_lts.contains(input_lt);
-                        if is_copy(cx, *ty);
-                        if let Some(size) = cx.layout_of(*ty).ok().map(|l| l.size.bytes());
-                        if size <= self.ref_min_size;
-                        if let hir::TyKind::Rptr(_, MutTy { ty: decl_ty, .. }) = input.kind;
-                        then {
-                            let value_type = if fn_body.and_then(|body| body.params.get(index)).map_or(false, is_self) {
-                                "self".into()
-                            } else {
-                                snippet(cx, decl_ty.span, "_").into()
-                            };
-                            span_lint_and_sugg(
-                                cx,
-                                TRIVIALLY_COPY_PASS_BY_REF,
-                                input.span,
-                                &format!("this argument ({} byte) is passed by reference, but would be more efficient if passed by value (limit: {} byte)", size, self.ref_min_size),
-                                "consider passing by value instead",
-                                value_type,
-                                Applicability::Unspecified,
-                            );
-                        }
+                    if !output_lts.contains(input_lt)
+                        && is_copy(cx, *ty)
+                        && let Some(size) = cx.layout_of(*ty).ok().map(|l| l.size.bytes())
+                        && size <= self.ref_min_size
+                        && let hir::TyKind::Rptr(_, MutTy { ty: decl_ty, .. }) = input.kind
+                    {
+                        let value_type = if fn_body.and_then(|body| body.params.get(index)).map_or(false, is_self) {
+                            "self".into()
+                        } else {
+                            snippet(cx, decl_ty.span, "_").into()
+                        };
+                        span_lint_and_sugg(
+                            cx,
+                            TRIVIALLY_COPY_PASS_BY_REF,
+                            input.span,
+                            &format!("this argument ({} byte) is passed by reference, but would be more efficient if passed by value (limit: {} byte)", size, self.ref_min_size),
+                            "consider passing by value instead",
+                            value_type,
+                            Applicability::Unspecified,
+                        );
                     }
                 },
 
@@ -199,22 +196,20 @@ impl<'tcx> PassByRefOrValue {
                         }
                     }
 
-                    if_chain! {
-                        if is_copy(cx, ty);
-                        if !is_self_ty(input);
-                        if let Some(size) = cx.layout_of(ty).ok().map(|l| l.size.bytes());
-                        if size > self.value_max_size;
-                        then {
-                            span_lint_and_sugg(
-                                cx,
-                                LARGE_TYPES_PASSED_BY_VALUE,
-                                input.span,
-                                &format!("this argument ({} byte) is passed by value, but might be more efficient if passed by reference (limit: {} byte)", size, self.value_max_size),
-                                "consider passing by reference instead",
-                                format!("&{}", snippet(cx, input.span, "_")),
-                                Applicability::MaybeIncorrect,
-                            );
-                        }
+                    if is_copy(cx, ty)
+                        && !is_self_ty(input)
+                        && let Some(size) = cx.layout_of(ty).ok().map(|l| l.size.bytes())
+                        && size > self.value_max_size
+                    {
+                        span_lint_and_sugg(
+                            cx,
+                            LARGE_TYPES_PASSED_BY_VALUE,
+                            input.span,
+                            &format!("this argument ({} byte) is passed by value, but might be more efficient if passed by reference (limit: {} byte)", size, self.value_max_size),
+                            "consider passing by reference instead",
+                            format!("&{}", snippet(cx, input.span, "_")),
+                            Applicability::MaybeIncorrect,
+                        );
                     }
                 },
 

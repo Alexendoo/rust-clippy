@@ -64,55 +64,53 @@ fn is_path_self(e: &Expr<'_>) -> bool {
 
 impl<'tcx> LateLintPass<'tcx> for DerivableImpls {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'_>) {
-        if_chain! {
-            if let ItemKind::Impl(Impl {
-                of_trait: Some(ref trait_ref),
-                items: [child],
-                self_ty,
-                ..
-            }) = item.kind;
-            if let attrs = cx.tcx.hir().attrs(item.hir_id());
-            if !is_automatically_derived(attrs);
-            if !item.span.from_expansion();
-            if let Some(def_id) = trait_ref.trait_def_id();
-            if cx.tcx.is_diagnostic_item(sym::Default, def_id);
-            if let impl_item_hir = child.id.hir_id();
-            if let Some(Node::ImplItem(impl_item)) = cx.tcx.hir().find(impl_item_hir);
-            if let ImplItemKind::Fn(_, b) = &impl_item.kind;
-            if let Body { value: func_expr, .. } = cx.tcx.hir().body(*b);
-            if let Some(adt_def) = cx.tcx.type_of(item.def_id).ty_adt_def();
-            if !attrs.iter().any(|attr| attr.doc_str().is_some());
-            if let child_attrs = cx.tcx.hir().attrs(impl_item_hir);
-            if !child_attrs.iter().any(|attr| attr.doc_str().is_some());
-            if adt_def.is_struct();
-            then {
-                if let TyKind::Path(QPath::Resolved(_, p)) = self_ty.kind {
-                    if let Some(PathSegment { args: Some(a), .. }) = p.segments.last() {
-                        for arg in a.args {
-                            if !matches!(arg, GenericArg::Lifetime(_)) {
-                                return;
-                            }
+        if let ItemKind::Impl(Impl {
+            of_trait: Some(ref trait_ref),
+            items: [child],
+            self_ty,
+            ..
+        }) = item.kind
+            && let attrs = cx.tcx.hir().attrs(item.hir_id())
+            && !is_automatically_derived(attrs)
+            && !item.span.from_expansion()
+            && let Some(def_id) = trait_ref.trait_def_id()
+            && cx.tcx.is_diagnostic_item(sym::Default, def_id)
+            && let impl_item_hir = child.id.hir_id()
+            && let Some(Node::ImplItem(impl_item)) = cx.tcx.hir().find(impl_item_hir)
+            && let ImplItemKind::Fn(_, b) = &impl_item.kind
+            && let Body { value: func_expr, .. } = cx.tcx.hir().body(*b)
+            && let Some(adt_def) = cx.tcx.type_of(item.def_id).ty_adt_def()
+            && !attrs.iter().any(|attr| attr.doc_str().is_some())
+            && let child_attrs = cx.tcx.hir().attrs(impl_item_hir)
+            && !child_attrs.iter().any(|attr| attr.doc_str().is_some())
+            && adt_def.is_struct()
+        {
+            if let TyKind::Path(QPath::Resolved(_, p)) = self_ty.kind {
+                if let Some(PathSegment { args: Some(a), .. }) = p.segments.last() {
+                    for arg in a.args {
+                        if !matches!(arg, GenericArg::Lifetime(_)) {
+                            return;
                         }
                     }
                 }
-                let should_emit = match peel_blocks(func_expr).kind {
-                    ExprKind::Tup(fields) => fields.iter().all(|e| is_default_equivalent(cx, e)),
-                    ExprKind::Call(callee, args)
-                        if is_path_self(callee) => args.iter().all(|e| is_default_equivalent(cx, e)),
-                    ExprKind::Struct(_, fields, _) => fields.iter().all(|ef| is_default_equivalent(cx, ef.expr)),
-                    _ => false,
-                };
-                if should_emit {
-                    let path_string = cx.tcx.def_path_str(adt_def.did());
-                    span_lint_and_help(
-                        cx,
-                        DERIVABLE_IMPLS,
-                        item.span,
-                        "this `impl` can be derived",
-                        None,
-                        &format!("try annotating `{}` with `#[derive(Default)]`", path_string),
-                    );
-                }
+            }
+            let should_emit = match peel_blocks(func_expr).kind {
+                ExprKind::Tup(fields) => fields.iter().all(|e| is_default_equivalent(cx, e)),
+                ExprKind::Call(callee, args)
+                    if is_path_self(callee) => args.iter().all(|e| is_default_equivalent(cx, e)),
+                ExprKind::Struct(_, fields, _) => fields.iter().all(|ef| is_default_equivalent(cx, ef.expr)),
+                _ => false,
+            };
+            if should_emit {
+                let path_string = cx.tcx.def_path_str(adt_def.did());
+                span_lint_and_help(
+                    cx,
+                    DERIVABLE_IMPLS,
+                    item.span,
+                    "this `impl` can be derived",
+                    None,
+                    &format!("try annotating `{}` with `#[derive(Default)]`", path_string),
+                );
             }
         }
     }

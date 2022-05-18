@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::{span_lint, span_lint_and_sugg, span_lint_and_then, span_lint_hir_and_then};
 use clippy_utils::source::{snippet, snippet_opt};
 use clippy_utils::ty::{implements_trait, is_copy};
-use if_chain::if_chain;
 use rustc_ast::ast::LitKind;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::FnKind;
@@ -316,78 +315,74 @@ impl<'tcx> LateLintPass<'tcx> for MiscLints {
     }
 
     fn check_stmt(&mut self, cx: &LateContext<'tcx>, stmt: &'tcx Stmt<'_>) {
-        if_chain! {
-            if !in_external_macro(cx.tcx.sess, stmt.span);
-            if let StmtKind::Local(local) = stmt.kind;
-            if let PatKind::Binding(an, .., name, None) = local.pat.kind;
-            if let Some(init) = local.init;
-            if an == BindingAnnotation::Ref || an == BindingAnnotation::RefMut;
-            then {
-                // use the macro callsite when the init span (but not the whole local span)
-                // comes from an expansion like `vec![1, 2, 3]` in `let ref _ = vec![1, 2, 3];`
-                let sugg_init = if init.span.from_expansion() && !local.span.from_expansion() {
-                    Sugg::hir_with_macro_callsite(cx, init, "..")
-                } else {
-                    Sugg::hir(cx, init, "..")
-                };
-                let (mutopt, initref) = if an == BindingAnnotation::RefMut {
-                    ("mut ", sugg_init.mut_addr())
-                } else {
-                    ("", sugg_init.addr())
-                };
-                let tyopt = if let Some(ty) = local.ty {
-                    format!(": &{mutopt}{ty}", mutopt=mutopt, ty=snippet(cx, ty.span, ".."))
-                } else {
-                    String::new()
-                };
-                span_lint_hir_and_then(
-                    cx,
-                    TOPLEVEL_REF_ARG,
-                    init.hir_id,
-                    local.pat.span,
-                    "`ref` on an entire `let` pattern is discouraged, take a reference with `&` instead",
-                    |diag| {
-                        diag.span_suggestion(
-                            stmt.span,
-                            "try",
-                            format!(
-                                "let {name}{tyopt} = {initref};",
-                                name=snippet(cx, name.span, ".."),
-                                tyopt=tyopt,
-                                initref=initref,
-                            ),
-                            Applicability::MachineApplicable,
-                        );
-                    }
-                );
-            }
+        if !in_external_macro(cx.tcx.sess, stmt.span)
+            && let StmtKind::Local(local) = stmt.kind
+            && let PatKind::Binding(an, .., name, None) = local.pat.kind
+            && let Some(init) = local.init
+            && (an == BindingAnnotation::Ref || an == BindingAnnotation::RefMut)
+        {
+            // use the macro callsite when the init span (but not the whole local span)
+            // comes from an expansion like `vec![1, 2, 3]` in `let ref _ = vec![1, 2, 3];`
+            let sugg_init = if init.span.from_expansion() && !local.span.from_expansion() {
+                Sugg::hir_with_macro_callsite(cx, init, "..")
+            } else {
+                Sugg::hir(cx, init, "..")
+            };
+            let (mutopt, initref) = if an == BindingAnnotation::RefMut {
+                ("mut ", sugg_init.mut_addr())
+            } else {
+                ("", sugg_init.addr())
+            };
+            let tyopt = if let Some(ty) = local.ty {
+                format!(": &{mutopt}{ty}", mutopt=mutopt, ty=snippet(cx, ty.span, ".."))
+            } else {
+                String::new()
+            };
+            span_lint_hir_and_then(
+                cx,
+                TOPLEVEL_REF_ARG,
+                init.hir_id,
+                local.pat.span,
+                "`ref` on an entire `let` pattern is discouraged, take a reference with `&` instead",
+                |diag| {
+                    diag.span_suggestion(
+                        stmt.span,
+                        "try",
+                        format!(
+                            "let {name}{tyopt} = {initref};",
+                            name=snippet(cx, name.span, ".."),
+                            tyopt=tyopt,
+                            initref=initref,
+                        ),
+                        Applicability::MachineApplicable,
+                    );
+                }
+            );
         };
-        if_chain! {
-            if let StmtKind::Semi(expr) = stmt.kind;
-            if let ExprKind::Binary(ref binop, a, b) = expr.kind;
-            if binop.node == BinOpKind::And || binop.node == BinOpKind::Or;
-            if let Some(sugg) = Sugg::hir_opt(cx, a);
-            then {
-                span_lint_hir_and_then(
-                    cx,
-                    SHORT_CIRCUIT_STATEMENT,
-                    expr.hir_id,
-                    stmt.span,
-                    "boolean short circuit operator in statement may be clearer using an explicit test",
-                    |diag| {
-                        let sugg = if binop.node == BinOpKind::Or { !sugg } else { sugg };
-                        diag.span_suggestion(
-                            stmt.span,
-                            "replace it with",
-                            format!(
-                                "if {} {{ {}; }}",
-                                sugg,
-                                &snippet(cx, b.span, ".."),
-                            ),
-                            Applicability::MachineApplicable, // snippet
-                        );
-                    });
-            }
+        if let StmtKind::Semi(expr) = stmt.kind
+            && let ExprKind::Binary(ref binop, a, b) = expr.kind
+            && (binop.node == BinOpKind::And || binop.node == BinOpKind::Or)
+            && let Some(sugg) = Sugg::hir_opt(cx, a)
+        {
+            span_lint_hir_and_then(
+                cx,
+                SHORT_CIRCUIT_STATEMENT,
+                expr.hir_id,
+                stmt.span,
+                "boolean short circuit operator in statement may be clearer using an explicit test",
+                |diag| {
+                    let sugg = if binop.node == BinOpKind::Or { !sugg } else { sugg };
+                    diag.span_suggestion(
+                        stmt.span,
+                        "replace it with",
+                        format!(
+                            "if {} {{ {}; }}",
+                            sugg,
+                            &snippet(cx, b.span, ".."),
+                        ),
+                        Applicability::MachineApplicable, // snippet
+                    );
+                });
         };
     }
 
@@ -475,22 +470,20 @@ fn get_lint_and_message(
 }
 
 fn check_nan(cx: &LateContext<'_>, expr: &Expr<'_>, cmp_expr: &Expr<'_>) {
-    if_chain! {
-        if !in_constant(cx, cmp_expr.hir_id);
-        if let Some((value, _)) = constant(cx, cx.typeck_results(), expr);
-        if match value {
+    if !in_constant(cx, cmp_expr.hir_id)
+        && let Some((value, _)) = constant(cx, cx.typeck_results(), expr)
+        && match value {
             Constant::F32(num) => num.is_nan(),
             Constant::F64(num) => num.is_nan(),
             _ => false,
-        };
-        then {
-            span_lint(
-                cx,
-                CMP_NAN,
-                cmp_expr.span,
-                "doomed comparison with `NAN`, use `{f32,f64}::is_nan()` instead",
-            );
         }
+    {
+        span_lint(
+            cx,
+            CMP_NAN,
+            cmp_expr.span,
+            "doomed comparison with `NAN`, use `{f32,f64}::is_nan()` instead",
+        );
     }
 }
 
@@ -522,14 +515,12 @@ fn is_signum(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
         return is_signum(cx, child_expr);
     }
 
-    if_chain! {
-        if let ExprKind::MethodCall(method_name, [ref self_arg, ..], _) = expr.kind;
-        if sym!(signum) == method_name.ident.name;
+    if let ExprKind::MethodCall(method_name, [ref self_arg, ..], _) = expr.kind
+        && sym!(signum) == method_name.ident.name
         // Check that the receiver of the signum() is a float (expressions[0] is the receiver of
         // the method call)
-        then {
-            return is_float(cx, self_arg);
-        }
+    {
+        return is_float(cx, self_arg);
     }
     false
 }
@@ -711,27 +702,25 @@ fn non_macro_local(cx: &LateContext<'_>, res: def::Res) -> bool {
 }
 
 fn check_cast(cx: &LateContext<'_>, span: Span, e: &Expr<'_>, ty: &hir::Ty<'_>) {
-    if_chain! {
-        if let TyKind::Ptr(ref mut_ty) = ty.kind;
-        if let ExprKind::Lit(ref lit) = e.kind;
-        if let LitKind::Int(0, _) = lit.node;
-        if !in_constant(cx, e.hir_id);
-        then {
-            let (msg, sugg_fn) = match mut_ty.mutbl {
-                Mutability::Mut => ("`0 as *mut _` detected", "std::ptr::null_mut"),
-                Mutability::Not => ("`0 as *const _` detected", "std::ptr::null"),
-            };
+    if let TyKind::Ptr(ref mut_ty) = ty.kind
+        && let ExprKind::Lit(ref lit) = e.kind
+        && let LitKind::Int(0, _) = lit.node
+        && !in_constant(cx, e.hir_id)
+    {
+        let (msg, sugg_fn) = match mut_ty.mutbl {
+            Mutability::Mut => ("`0 as *mut _` detected", "std::ptr::null_mut"),
+            Mutability::Not => ("`0 as *const _` detected", "std::ptr::null"),
+        };
 
-            let (sugg, appl) = if let TyKind::Infer = mut_ty.ty.kind {
-                (format!("{}()", sugg_fn), Applicability::MachineApplicable)
-            } else if let Some(mut_ty_snip) = snippet_opt(cx, mut_ty.ty.span) {
-                (format!("{}::<{}>()", sugg_fn, mut_ty_snip), Applicability::MachineApplicable)
-            } else {
-                // `MaybeIncorrect` as type inference may not work with the suggested code
-                (format!("{}()", sugg_fn), Applicability::MaybeIncorrect)
-            };
-            span_lint_and_sugg(cx, ZERO_PTR, span, msg, "try", sugg, appl);
-        }
+        let (sugg, appl) = if let TyKind::Infer = mut_ty.ty.kind {
+            (format!("{}()", sugg_fn), Applicability::MachineApplicable)
+        } else if let Some(mut_ty_snip) = snippet_opt(cx, mut_ty.ty.span) {
+            (format!("{}::<{}>()", sugg_fn, mut_ty_snip), Applicability::MachineApplicable)
+        } else {
+            // `MaybeIncorrect` as type inference may not work with the suggested code
+            (format!("{}()", sugg_fn), Applicability::MaybeIncorrect)
+        };
+        span_lint_and_sugg(cx, ZERO_PTR, span, msg, "try", sugg, appl);
     }
 }
 

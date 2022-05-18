@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::match_function_call;
 use clippy_utils::paths::FUTURE_FROM_GENERATOR;
 use clippy_utils::source::{position_before_rarrow, snippet_block, snippet_opt};
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::FnKind;
 use rustc_hir::{
@@ -48,52 +47,48 @@ impl<'tcx> LateLintPass<'tcx> for ManualAsyncFn {
         span: Span,
         _: HirId,
     ) {
-        if_chain! {
-            if let Some(header) = kind.header();
-            if header.asyncness == IsAsync::NotAsync;
+        if let Some(header) = kind.header()
+            && header.asyncness == IsAsync::NotAsync
             // Check that this function returns `impl Future`
-            if let FnRetTy::Return(ret_ty) = decl.output;
-            if let Some((trait_ref, output_lifetimes)) = future_trait_ref(cx, ret_ty);
-            if let Some(output) = future_output_ty(trait_ref);
-            if captures_all_lifetimes(decl.inputs, &output_lifetimes);
+            && let FnRetTy::Return(ret_ty) = decl.output
+            && let Some((trait_ref, output_lifetimes)) = future_trait_ref(cx, ret_ty)
+            && let Some(output) = future_output_ty(trait_ref)
+            && captures_all_lifetimes(decl.inputs, &output_lifetimes)
             // Check that the body of the function consists of one async block
-            if let ExprKind::Block(block, _) = body.value.kind;
-            if block.stmts.is_empty();
-            if let Some(closure_body) = desugared_async_block(cx, block);
-            then {
-                let header_span = span.with_hi(ret_ty.span.hi());
+            && let ExprKind::Block(block, _) = body.value.kind
+            && block.stmts.is_empty()
+            && let Some(closure_body) = desugared_async_block(cx, block)
+        {
+            let header_span = span.with_hi(ret_ty.span.hi());
 
-                span_lint_and_then(
-                    cx,
-                    MANUAL_ASYNC_FN,
-                    header_span,
-                    "this function can be simplified using the `async fn` syntax",
-                    |diag| {
-                        if_chain! {
-                            if let Some(header_snip) = snippet_opt(cx, header_span);
-                            if let Some(ret_pos) = position_before_rarrow(&header_snip);
-                            if let Some((ret_sugg, ret_snip)) = suggested_ret(cx, output);
-                            then {
-                                let help = format!("make the function `async` and {}", ret_sugg);
-                                diag.span_suggestion(
-                                    header_span,
-                                    &help,
-                                    format!("async {}{}", &header_snip[..ret_pos], ret_snip),
-                                    Applicability::MachineApplicable
-                                );
+            span_lint_and_then(
+                cx,
+                MANUAL_ASYNC_FN,
+                header_span,
+                "this function can be simplified using the `async fn` syntax",
+                |diag| {
+                    if let Some(header_snip) = snippet_opt(cx, header_span)
+                        && let Some(ret_pos) = position_before_rarrow(&header_snip)
+                        && let Some((ret_sugg, ret_snip)) = suggested_ret(cx, output)
+                    {
+                        let help = format!("make the function `async` and {}", ret_sugg);
+                        diag.span_suggestion(
+                            header_span,
+                            &help,
+                            format!("async {}{}", &header_snip[..ret_pos], ret_snip),
+                            Applicability::MachineApplicable
+                        );
 
-                                let body_snip = snippet_block(cx, closure_body.value.span, "..", Some(block.span));
-                                diag.span_suggestion(
-                                    block.span,
-                                    "move the body of the async block to the enclosing function",
-                                    body_snip.to_string(),
-                                    Applicability::MachineApplicable
-                                );
-                            }
-                        }
-                    },
-                );
-            }
+                        let body_snip = snippet_block(cx, closure_body.value.span, "..", Some(block.span));
+                        diag.span_suggestion(
+                            block.span,
+                            "move the body of the async block to the enclosing function",
+                            body_snip.to_string(),
+                            Applicability::MachineApplicable
+                        );
+                    }
+                },
+            );
         }
     }
 }
@@ -102,48 +97,44 @@ fn future_trait_ref<'tcx>(
     cx: &LateContext<'tcx>,
     ty: &'tcx Ty<'tcx>,
 ) -> Option<(&'tcx TraitRef<'tcx>, Vec<LifetimeName>)> {
-    if_chain! {
-        if let TyKind::OpaqueDef(item_id, bounds) = ty.kind;
-        let item = cx.tcx.hir().item(item_id);
-        if let ItemKind::OpaqueTy(opaque) = &item.kind;
-        if let Some(trait_ref) = opaque.bounds.iter().find_map(|bound| {
+    if let TyKind::OpaqueDef(item_id, bounds) = ty.kind
+        && let item = cx.tcx.hir().item(item_id)
+        && let ItemKind::OpaqueTy(opaque) = &item.kind
+        && let Some(trait_ref) = opaque.bounds.iter().find_map(|bound| {
             if let GenericBound::Trait(poly, _) = bound {
                 Some(&poly.trait_ref)
             } else {
                 None
             }
-        });
-        if trait_ref.trait_def_id() == cx.tcx.lang_items().future_trait();
-        then {
-            let output_lifetimes = bounds
-                .iter()
-                .filter_map(|bound| {
-                    if let GenericArg::Lifetime(lt) = bound {
-                        Some(lt.name)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+        })
+        && trait_ref.trait_def_id() == cx.tcx.lang_items().future_trait()
+    {
+        let output_lifetimes = bounds
+            .iter()
+            .filter_map(|bound| {
+                if let GenericArg::Lifetime(lt) = bound {
+                    Some(lt.name)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-            return Some((trait_ref, output_lifetimes));
-        }
+        return Some((trait_ref, output_lifetimes));
     }
 
     None
 }
 
 fn future_output_ty<'tcx>(trait_ref: &'tcx TraitRef<'tcx>) -> Option<&'tcx Ty<'tcx>> {
-    if_chain! {
-        if let Some(segment) = trait_ref.path.segments.last();
-        if let Some(args) = segment.args;
-        if args.bindings.len() == 1;
-        let binding = &args.bindings[0];
-        if binding.ident.name == sym::Output;
-        if let TypeBindingKind::Equality{term: Term::Ty(output)} = binding.kind;
-        then {
-            return Some(output)
-        }
+    if let Some(segment) = trait_ref.path.segments.last()
+        && let Some(args) = segment.args
+        && args.bindings.len() == 1
+        && let binding = &args.bindings[0]
+        && binding.ident.name == sym::Output
+        && let TypeBindingKind::Equality{term: Term::Ty(output)} = binding.kind
+    {
+        return Some(output)
     }
 
     None
@@ -173,16 +164,14 @@ fn captures_all_lifetimes(inputs: &[Ty<'_>], output_lifetimes: &[LifetimeName]) 
 }
 
 fn desugared_async_block<'tcx>(cx: &LateContext<'tcx>, block: &'tcx Block<'tcx>) -> Option<&'tcx Body<'tcx>> {
-    if_chain! {
-        if let Some(block_expr) = block.expr;
-        if let Some(args) = match_function_call(cx, block_expr, &FUTURE_FROM_GENERATOR);
-        if args.len() == 1;
-        if let Expr{kind: ExprKind::Closure(_, _, body_id, ..), ..} = args[0];
-        let closure_body = cx.tcx.hir().body(body_id);
-        if closure_body.generator_kind == Some(GeneratorKind::Async(AsyncGeneratorKind::Block));
-        then {
-            return Some(closure_body);
-        }
+    if let Some(block_expr) = block.expr
+        && let Some(args) = match_function_call(cx, block_expr, &FUTURE_FROM_GENERATOR)
+        && args.len() == 1
+        && let Expr{kind: ExprKind::Closure(_, _, body_id, ..), ..} = args[0]
+        && let closure_body = cx.tcx.hir().body(body_id)
+        && closure_body.generator_kind == Some(GeneratorKind::Async(AsyncGeneratorKind::Block))
+    {
+        return Some(closure_body);
     }
 
     None

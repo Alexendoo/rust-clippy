@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet;
 use hir::def::{DefKind, Res};
-use if_chain::if_chain;
 use rustc_ast::ast;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::Applicability;
@@ -88,26 +87,22 @@ impl MacroUseImports {
 
 impl<'tcx> LateLintPass<'tcx> for MacroUseImports {
     fn check_item(&mut self, cx: &LateContext<'_>, item: &hir::Item<'_>) {
-        if_chain! {
-            if cx.sess().opts.edition >= Edition::Edition2018;
-            if let hir::ItemKind::Use(path, _kind) = &item.kind;
-            let attrs = cx.tcx.hir().attrs(item.hir_id());
-            if let Some(mac_attr) = attrs.iter().find(|attr| attr.has_name(sym::macro_use));
-            if let Res::Def(DefKind::Mod, id) = path.res;
-            if !id.is_local();
-            then {
-                for kid in cx.tcx.module_children(id).iter() {
-                    if let Res::Def(DefKind::Macro(_mac_type), mac_id) = kid.res {
-                        let span = mac_attr.span;
-                        let def_path = cx.tcx.def_path_str(mac_id);
-                        self.imports.push((def_path, span));
-                    }
-                }
-            } else {
-                if item.span.from_expansion() {
-                    self.push_unique_macro_pat_ty(cx, item.span);
+        if cx.sess().opts.edition >= Edition::Edition2018
+            && let hir::ItemKind::Use(path, _kind) = &item.kind
+            && let attrs = cx.tcx.hir().attrs(item.hir_id())
+            && let Some(mac_attr) = attrs.iter().find(|attr| attr.has_name(sym::macro_use))
+            && let Res::Def(DefKind::Mod, id) = path.res
+            && !id.is_local()
+        {
+            for kid in cx.tcx.module_children(id).iter() {
+                if let Res::Def(DefKind::Macro(_mac_type), mac_id) = kid.res {
+                    let span = mac_attr.span;
+                    let def_path = cx.tcx.def_path_str(mac_id);
+                    self.imports.push((def_path, span));
                 }
             }
+        } else if item.span.from_expansion() {
+            self.push_unique_macro_pat_ty(cx, item.span);
         }
     }
     fn check_attribute(&mut self, cx: &LateContext<'_>, attr: &ast::Attribute) {

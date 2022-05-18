@@ -37,35 +37,33 @@ declare_lint_pass!(ManualAssert => [MANUAL_ASSERT]);
 
 impl<'tcx> LateLintPass<'tcx> for ManualAssert {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &Expr<'tcx>) {
-        if_chain! {
-            if let ExprKind::If(cond, then, None) = expr.kind;
-            if !matches!(cond.kind, ExprKind::Let(_));
-            if !expr.span.from_expansion();
-            let then = peel_blocks_with_stmt(then);
-            if let Some(macro_call) = root_macro_call(then.span);
-            if cx.tcx.item_name(macro_call.def_id) == sym::panic;
-            if !cx.tcx.sess.source_map().is_multiline(cond.span);
-            if let Some(format_args) = FormatArgsExpn::find_nested(cx, then, macro_call.expn);
-            then {
-                let mut applicability = Applicability::MachineApplicable;
-                let format_args_snip = snippet_with_applicability(cx, format_args.inputs_span(), "..", &mut applicability);
-                let cond = cond.peel_drop_temps();
-                let (cond, not) = match cond.kind {
-                    ExprKind::Unary(UnOp::Not, e) => (e, ""),
-                    _ => (cond, "!"),
-                };
-                let cond_sugg = sugg::Sugg::hir_with_applicability(cx, cond, "..", &mut applicability).maybe_par();
-                let sugg = format!("assert!({not}{cond_sugg}, {format_args_snip});");
-                span_lint_and_sugg(
-                    cx,
-                    MANUAL_ASSERT,
-                    expr.span,
-                    "only a `panic!` in `if`-then statement",
-                    "try",
-                    sugg,
-                    Applicability::MachineApplicable,
-                );
-            }
+        if let ExprKind::If(cond, then, None) = expr.kind
+            && !matches!(cond.kind, ExprKind::Let(_))
+            && !expr.span.from_expansion()
+            && let then = peel_blocks_with_stmt(then)
+            && let Some(macro_call) = root_macro_call(then.span)
+            && cx.tcx.item_name(macro_call.def_id) == sym::panic
+            && !cx.tcx.sess.source_map().is_multiline(cond.span)
+            && let Some(format_args) = FormatArgsExpn::find_nested(cx, then, macro_call.expn)
+        {
+            let mut applicability = Applicability::MachineApplicable;
+            let format_args_snip = snippet_with_applicability(cx, format_args.inputs_span(), "..", &mut applicability);
+            let cond = cond.peel_drop_temps();
+            let (cond, not) = match cond.kind {
+                ExprKind::Unary(UnOp::Not, e) => (e, ""),
+                _ => (cond, "!"),
+            };
+            let cond_sugg = sugg::Sugg::hir_with_applicability(cx, cond, "..", &mut applicability).maybe_par();
+            let sugg = format!("assert!({not}{cond_sugg}, {format_args_snip});");
+            span_lint_and_sugg(
+                cx,
+                MANUAL_ASSERT,
+                expr.span,
+                "only a `panic!` in `if`-then statement",
+                "try",
+                sugg,
+                Applicability::MachineApplicable,
+            );
         }
     }
 }

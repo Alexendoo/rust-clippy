@@ -1,6 +1,5 @@
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet_with_applicability;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{BindingAnnotation, Mutability, Node, Pat, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -53,34 +52,32 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessBorrowedRef {
             return;
         }
 
-        if_chain! {
-            // Only lint immutable refs, because `&mut ref T` may be useful.
-            if let PatKind::Ref(sub_pat, Mutability::Not) = pat.kind;
+        // Only lint immutable refs, because `&mut ref T` may be useful.
+        if let PatKind::Ref(sub_pat, Mutability::Not) = pat.kind
 
             // Check sub_pat got a `ref` keyword (excluding `ref mut`).
-            if let PatKind::Binding(BindingAnnotation::Ref, .., spanned_name, _) = sub_pat.kind;
-            let parent_id = cx.tcx.hir().get_parent_node(pat.hir_id);
-            if let Some(parent_node) = cx.tcx.hir().find(parent_id);
-            then {
-                // do not recurse within patterns, as they may have other references
-                // XXXManishearth we can relax this constraint if we only check patterns
-                // with a single ref pattern inside them
-                if let Node::Pat(_) = parent_node {
-                    return;
-                }
-                let mut applicability = Applicability::MachineApplicable;
-                span_lint_and_then(cx, NEEDLESS_BORROWED_REFERENCE, pat.span,
-                                   "this pattern takes a reference on something that is being de-referenced",
-                                   |diag| {
-                                       let hint = snippet_with_applicability(cx, spanned_name.span, "..", &mut applicability).into_owned();
-                                       diag.span_suggestion(
-                                           pat.span,
-                                           "try removing the `&ref` part and just keep",
-                                           hint,
-                                           applicability,
-                                       );
-                                   });
+            && let PatKind::Binding(BindingAnnotation::Ref, .., spanned_name, _) = sub_pat.kind
+            && let parent_id = cx.tcx.hir().get_parent_node(pat.hir_id)
+            && let Some(parent_node) = cx.tcx.hir().find(parent_id)
+        {
+            // do not recurse within patterns, as they may have other references
+            // XXXManishearth we can relax this constraint if we only check patterns
+            // with a single ref pattern inside them
+            if let Node::Pat(_) = parent_node {
+                return;
             }
+            let mut applicability = Applicability::MachineApplicable;
+            span_lint_and_then(cx, NEEDLESS_BORROWED_REFERENCE, pat.span,
+                               "this pattern takes a reference on something that is being de-referenced",
+                               |diag| {
+                                   let hint = snippet_with_applicability(cx, spanned_name.span, "..", &mut applicability).into_owned();
+                                   diag.span_suggestion(
+                                       pat.span,
+                                       "try removing the `&ref` part and just keep",
+                                       hint,
+                                       applicability,
+                                   );
+                               });
         }
     }
 }

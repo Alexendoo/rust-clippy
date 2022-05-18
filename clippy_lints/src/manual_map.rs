@@ -159,32 +159,30 @@ impl<'tcx> LateLintPass<'tcx> for ManualMap {
             };
 
         let body_str = if let PatKind::Binding(annotation, id, some_binding, None) = some_pat.kind {
-            if_chain! {
-                if !some_expr.needs_unsafe_block;
-                if let Some(func) = can_pass_as_func(cx, id, some_expr.expr);
-                if func.span.ctxt() == some_expr.expr.span.ctxt();
-                then {
-                    snippet_with_applicability(cx, func.span, "..", &mut app).into_owned()
-                } else {
-                    if path_to_local_id(some_expr.expr, id)
-                        && !is_lint_allowed(cx, MATCH_AS_REF, expr.hir_id)
-                        && binding_ref.is_some()
-                    {
-                        return;
-                    }
+            if !some_expr.needs_unsafe_block
+                && let Some(func) = can_pass_as_func(cx, id, some_expr.expr)
+                && func.span.ctxt() == some_expr.expr.span.ctxt()
+            {
+                snippet_with_applicability(cx, func.span, "..", &mut app).into_owned()
+            } else {
+                if path_to_local_id(some_expr.expr, id)
+                    && !is_lint_allowed(cx, MATCH_AS_REF, expr.hir_id)
+                    && binding_ref.is_some()
+                {
+                    return;
+                }
 
-                    // `ref` and `ref mut` annotations were handled earlier.
-                    let annotation = if matches!(annotation, BindingAnnotation::Mutable) {
-                        "mut "
-                    } else {
-                        ""
-                    };
-                    let expr_snip = snippet_with_context(cx, some_expr.expr.span, expr_ctxt, "..", &mut app).0;
-                    if some_expr.needs_unsafe_block {
-                        format!("|{}{}| unsafe {{ {} }}", annotation, some_binding, expr_snip)
-                    } else {
-                        format!("|{}{}| {}", annotation, some_binding, expr_snip)
-                    }
+                // `ref` and `ref mut` annotations were handled earlier.
+                let annotation = if matches!(annotation, BindingAnnotation::Mutable) {
+                    "mut "
+                } else {
+                    ""
+                };
+                let expr_snip = snippet_with_context(cx, some_expr.expr.span, expr_ctxt, "..", &mut app).0;
+                if some_expr.needs_unsafe_block {
+                    format!("|{}{}| unsafe {{ {} }}", annotation, some_binding, expr_snip)
+                } else {
+                    format!("|{}{}| {}", annotation, some_binding, expr_snip)
                 }
             }
         } else if !is_wild_none && explicit_ref.is_none() {

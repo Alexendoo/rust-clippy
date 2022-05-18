@@ -1,5 +1,4 @@
 use clippy_utils::diagnostics::span_lint_and_then;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Item, ItemKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -48,39 +47,37 @@ impl_lint_pass!(LargeConstArrays => [LARGE_CONST_ARRAYS]);
 
 impl<'tcx> LateLintPass<'tcx> for LargeConstArrays {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'_>) {
-        if_chain! {
-            if !item.span.from_expansion();
-            if let ItemKind::Const(hir_ty, _) = &item.kind;
-            let ty = hir_ty_to_ty(cx.tcx, hir_ty);
-            if let ty::Array(element_type, cst) = ty.kind();
-            if let ConstKind::Value(ConstValue::Scalar(element_count)) = cst.val();
-            if let Ok(element_count) = element_count.to_machine_usize(&cx.tcx);
-            if let Ok(element_size) = cx.layout_of(*element_type).map(|l| l.size.bytes());
-            if self.maximum_allowed_size < element_count * element_size;
+        if !item.span.from_expansion()
+            && let ItemKind::Const(hir_ty, _) = &item.kind
+            && let ty = hir_ty_to_ty(cx.tcx, hir_ty)
+            && let ty::Array(element_type, cst) = ty.kind()
+            && let ConstKind::Value(ConstValue::Scalar(element_count)) = cst.val()
+            && let Ok(element_count) = element_count.to_machine_usize(&cx.tcx)
+            && let Ok(element_size) = cx.layout_of(*element_type).map(|l| l.size.bytes())
+            && self.maximum_allowed_size < element_count * element_size
 
-            then {
-                let hi_pos = item.ident.span.lo() - BytePos::from_usize(1);
-                let sugg_span = Span::new(
-                    hi_pos - BytePos::from_usize("const".len()),
-                    hi_pos,
-                    item.span.ctxt(),
-                    item.span.parent(),
-                );
-                span_lint_and_then(
-                    cx,
-                    LARGE_CONST_ARRAYS,
-                    item.span,
-                    "large array defined as const",
-                    |diag| {
-                        diag.span_suggestion(
-                            sugg_span,
-                            "make this a static item",
-                            "static".to_string(),
-                            Applicability::MachineApplicable,
-                        );
-                    }
-                );
-            }
+        {
+            let hi_pos = item.ident.span.lo() - BytePos::from_usize(1);
+            let sugg_span = Span::new(
+                hi_pos - BytePos::from_usize("const".len()),
+                hi_pos,
+                item.span.ctxt(),
+                item.span.parent(),
+            );
+            span_lint_and_then(
+                cx,
+                LARGE_CONST_ARRAYS,
+                item.span,
+                "large array defined as const",
+                |diag| {
+                    diag.span_suggestion(
+                        sugg_span,
+                        "make this a static item",
+                        "static".to_string(),
+                        Applicability::MachineApplicable,
+                    );
+                }
+            );
         }
     }
 }

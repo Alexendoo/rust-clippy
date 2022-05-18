@@ -1,6 +1,5 @@
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet_opt;
-use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -40,15 +39,13 @@ declare_lint_pass!(NeedlessBitwiseBool => [NEEDLESS_BITWISE_BOOL]);
 
 fn is_bitwise_operation(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
     let ty = cx.typeck_results().expr_ty(expr);
-    if_chain! {
-        if !expr.span.from_expansion();
-        if let (&ExprKind::Binary(ref op, _, right), &ty::Bool) = (&expr.kind, &ty.kind());
-        if op.node == BinOpKind::BitAnd || op.node == BinOpKind::BitOr;
-        if let ExprKind::Call(..) | ExprKind::MethodCall(..) | ExprKind::Binary(..) | ExprKind::Unary(..) = right.kind;
-        if !right.can_have_side_effects();
-        then {
-            return true;
-        }
+    if !expr.span.from_expansion()
+        && let (&ExprKind::Binary(ref op, _, right), &ty::Bool) = (&expr.kind, &ty.kind())
+        && (op.node == BinOpKind::BitAnd || op.node == BinOpKind::BitOr)
+        && let ExprKind::Call(..) | ExprKind::MethodCall(..) | ExprKind::Binary(..) | ExprKind::Unary(..) = right.kind
+        && !right.can_have_side_effects()
+    {
+        return true;
     }
     false
 }

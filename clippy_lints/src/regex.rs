@@ -1,7 +1,6 @@
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::{span_lint, span_lint_and_help};
 use clippy_utils::{match_def_path, paths};
-use if_chain::if_chain;
 use rustc_ast::ast::{LitKind, StrStyle};
 use rustc_hir::{BorrowKind, Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -56,23 +55,21 @@ declare_lint_pass!(Regex => [INVALID_REGEX, TRIVIAL_REGEX]);
 
 impl<'tcx> LateLintPass<'tcx> for Regex {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            if let ExprKind::Call(fun, args) = expr.kind;
-            if let ExprKind::Path(ref qpath) = fun.kind;
-            if args.len() == 1;
-            if let Some(def_id) = cx.qpath_res(qpath, fun.hir_id).opt_def_id();
-            then {
-                if match_def_path(cx, def_id, &paths::REGEX_NEW) ||
-                   match_def_path(cx, def_id, &paths::REGEX_BUILDER_NEW) {
-                    check_regex(cx, &args[0], true);
-                } else if match_def_path(cx, def_id, &paths::REGEX_BYTES_NEW) ||
-                   match_def_path(cx, def_id, &paths::REGEX_BYTES_BUILDER_NEW) {
-                    check_regex(cx, &args[0], false);
-                } else if match_def_path(cx, def_id, &paths::REGEX_SET_NEW) {
-                    check_set(cx, &args[0], true);
-                } else if match_def_path(cx, def_id, &paths::REGEX_BYTES_SET_NEW) {
-                    check_set(cx, &args[0], false);
-                }
+        if let ExprKind::Call(fun, args) = expr.kind
+            && let ExprKind::Path(ref qpath) = fun.kind
+            && args.len() == 1
+            && let Some(def_id) = cx.qpath_res(qpath, fun.hir_id).opt_def_id()
+        {
+            if match_def_path(cx, def_id, &paths::REGEX_NEW) ||
+               match_def_path(cx, def_id, &paths::REGEX_BUILDER_NEW) {
+                check_regex(cx, &args[0], true);
+            } else if match_def_path(cx, def_id, &paths::REGEX_BYTES_NEW) ||
+               match_def_path(cx, def_id, &paths::REGEX_BYTES_BUILDER_NEW) {
+                check_regex(cx, &args[0], false);
+            } else if match_def_path(cx, def_id, &paths::REGEX_SET_NEW) {
+                check_set(cx, &args[0], true);
+            } else if match_def_path(cx, def_id, &paths::REGEX_BYTES_SET_NEW) {
+                check_set(cx, &args[0], false);
             }
         }
     }
@@ -129,13 +126,11 @@ fn is_trivial_regex(s: &regex_syntax::hir::Hir) -> Option<&'static str> {
 }
 
 fn check_set<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>, utf8: bool) {
-    if_chain! {
-        if let ExprKind::AddrOf(BorrowKind::Ref, _, expr) = expr.kind;
-        if let ExprKind::Array(exprs) = expr.kind;
-        then {
-            for expr in exprs {
-                check_regex(cx, expr, utf8);
-            }
+    if let ExprKind::AddrOf(BorrowKind::Ref, _, expr) = expr.kind
+        && let ExprKind::Array(exprs) = expr.kind
+    {
+        for expr in exprs {
+            check_regex(cx, expr, utf8);
         }
     }
 }

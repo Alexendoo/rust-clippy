@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::sugg::Sugg;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::{get_enclosing_block, is_expr_path_def_path, path_to_local, path_to_local_id, paths, SpanlessEq};
-use if_chain::if_chain;
 use rustc_ast::ast::LitKind;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::{walk_block, walk_expr, walk_stmt, Visitor};
@@ -70,44 +69,40 @@ enum InitializationType<'tcx> {
 impl<'tcx> LateLintPass<'tcx> for SlowVectorInit {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
         // Matches initialization on reassignements. For example: `vec = Vec::with_capacity(100)`
-        if_chain! {
-            if let ExprKind::Assign(left, right, _) = expr.kind;
+        if let ExprKind::Assign(left, right, _) = expr.kind
 
             // Extract variable
-            if let Some(local_id) = path_to_local(left);
+            && let Some(local_id) = path_to_local(left)
 
             // Extract len argument
-            if let Some(len_arg) = Self::is_vec_with_capacity(cx, right);
+            && let Some(len_arg) = Self::is_vec_with_capacity(cx, right)
 
-            then {
-                let vi = VecAllocation {
-                    local_id,
-                    allocation_expr: right,
-                    len_expr: len_arg,
-                };
+        {
+            let vi = VecAllocation {
+                local_id,
+                allocation_expr: right,
+                len_expr: len_arg,
+            };
 
-                Self::search_initialization(cx, vi, expr.hir_id);
-            }
+            Self::search_initialization(cx, vi, expr.hir_id);
         }
     }
 
     fn check_stmt(&mut self, cx: &LateContext<'tcx>, stmt: &'tcx Stmt<'_>) {
         // Matches statements which initializes vectors. For example: `let mut vec = Vec::with_capacity(10)`
-        if_chain! {
-            if let StmtKind::Local(local) = stmt.kind;
-            if let PatKind::Binding(BindingAnnotation::Mutable, local_id, _, None) = local.pat.kind;
-            if let Some(init) = local.init;
-            if let Some(len_arg) = Self::is_vec_with_capacity(cx, init);
+        if let StmtKind::Local(local) = stmt.kind
+            && let PatKind::Binding(BindingAnnotation::Mutable, local_id, _, None) = local.pat.kind
+            && let Some(init) = local.init
+            && let Some(len_arg) = Self::is_vec_with_capacity(cx, init)
 
-            then {
-                let vi = VecAllocation {
-                    local_id,
-                    allocation_expr: init,
-                    len_expr: len_arg,
-                };
+        {
+            let vi = VecAllocation {
+                local_id,
+                allocation_expr: init,
+                len_expr: len_arg,
+            };
 
-                Self::search_initialization(cx, vi, stmt.hir_id);
-            }
+            Self::search_initialization(cx, vi, stmt.hir_id);
         }
     }
 }
@@ -116,16 +111,14 @@ impl SlowVectorInit {
     /// Checks if the given expression is `Vec::with_capacity(..)`. It will return the expression
     /// of the first argument of `with_capacity` call if it matches or `None` if it does not.
     fn is_vec_with_capacity<'tcx>(cx: &LateContext<'_>, expr: &Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
-        if_chain! {
-            if let ExprKind::Call(func, [arg]) = expr.kind;
-            if let ExprKind::Path(QPath::TypeRelative(ty, name)) = func.kind;
-            if name.ident.as_str() == "with_capacity";
-            if is_type_diagnostic_item(cx, cx.typeck_results().node_type(ty.hir_id), sym::Vec);
-            then {
-                Some(arg)
-            } else {
-                None
-            }
+        if let ExprKind::Call(func, [arg]) = expr.kind
+            && let ExprKind::Path(QPath::TypeRelative(ty, name)) = func.kind
+            && name.ident.as_str() == "with_capacity"
+            && is_type_diagnostic_item(cx, cx.typeck_results().node_type(ty.hir_id), sym::Vec)
+        {
+            Some(arg)
+        } else {
+            None
         }
     }
 
@@ -195,57 +188,51 @@ struct VectorInitializationVisitor<'a, 'tcx> {
 impl<'a, 'tcx> VectorInitializationVisitor<'a, 'tcx> {
     /// Checks if the given expression is extending a vector with `repeat(0).take(..)`
     fn search_slow_extend_filling(&mut self, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            if self.initialization_found;
-            if let ExprKind::MethodCall(path, [self_arg, extend_arg], _) = expr.kind;
-            if path_to_local_id(self_arg, self.vec_alloc.local_id);
-            if path.ident.name == sym!(extend);
-            if self.is_repeat_take(extend_arg);
+        if self.initialization_found
+            && let ExprKind::MethodCall(path, [self_arg, extend_arg], _) = expr.kind
+            && path_to_local_id(self_arg, self.vec_alloc.local_id)
+            && path.ident.name == sym!(extend)
+            && self.is_repeat_take(extend_arg)
 
-            then {
-                self.slow_expression = Some(InitializationType::Extend(expr));
-            }
+        {
+            self.slow_expression = Some(InitializationType::Extend(expr));
         }
     }
 
     /// Checks if the given expression is resizing a vector with 0
     fn search_slow_resize_filling(&mut self, expr: &'tcx Expr<'_>) {
-        if_chain! {
-            if self.initialization_found;
-            if let ExprKind::MethodCall(path, [self_arg, len_arg, fill_arg], _) = expr.kind;
-            if path_to_local_id(self_arg, self.vec_alloc.local_id);
-            if path.ident.name == sym!(resize);
+        if self.initialization_found
+            && let ExprKind::MethodCall(path, [self_arg, len_arg, fill_arg], _) = expr.kind
+            && path_to_local_id(self_arg, self.vec_alloc.local_id)
+            && path.ident.name == sym!(resize)
 
             // Check that is filled with 0
-            if let ExprKind::Lit(ref lit) = fill_arg.kind;
-            if let LitKind::Int(0, _) = lit.node;
+            && let ExprKind::Lit(ref lit) = fill_arg.kind
+            && let LitKind::Int(0, _) = lit.node
 
             // Check that len expression is equals to `with_capacity` expression
-            if SpanlessEq::new(self.cx).eq_expr(len_arg, self.vec_alloc.len_expr);
+            && SpanlessEq::new(self.cx).eq_expr(len_arg, self.vec_alloc.len_expr)
 
-            then {
-                self.slow_expression = Some(InitializationType::Resize(expr));
-            }
+        {
+            self.slow_expression = Some(InitializationType::Resize(expr));
         }
     }
 
     /// Returns `true` if give expression is `repeat(0).take(...)`
     fn is_repeat_take(&self, expr: &Expr<'_>) -> bool {
-        if_chain! {
-            if let ExprKind::MethodCall(take_path, take_args, _) = expr.kind;
-            if take_path.ident.name == sym!(take);
+        if let ExprKind::MethodCall(take_path, take_args, _) = expr.kind
+            && take_path.ident.name == sym!(take)
 
             // Check that take is applied to `repeat(0)`
-            if let Some(repeat_expr) = take_args.get(0);
-            if self.is_repeat_zero(repeat_expr);
+            && let Some(repeat_expr) = take_args.get(0)
+            && self.is_repeat_zero(repeat_expr)
 
             // Check that len expression is equals to `with_capacity` expression
-            if let Some(len_arg) = take_args.get(1);
-            if SpanlessEq::new(self.cx).eq_expr(len_arg, self.vec_alloc.len_expr);
+            && let Some(len_arg) = take_args.get(1)
+            && SpanlessEq::new(self.cx).eq_expr(len_arg, self.vec_alloc.len_expr)
 
-            then {
-                return true;
-            }
+        {
+            return true;
         }
 
         false
@@ -253,17 +240,15 @@ impl<'a, 'tcx> VectorInitializationVisitor<'a, 'tcx> {
 
     /// Returns `true` if given expression is `repeat(0)`
     fn is_repeat_zero(&self, expr: &Expr<'_>) -> bool {
-        if_chain! {
-            if let ExprKind::Call(fn_expr, [repeat_arg]) = expr.kind;
-            if is_expr_path_def_path(self.cx, fn_expr, &paths::ITER_REPEAT);
-            if let ExprKind::Lit(ref lit) = repeat_arg.kind;
-            if let LitKind::Int(0, _) = lit.node;
+        if let ExprKind::Call(fn_expr, [repeat_arg]) = expr.kind
+            && is_expr_path_def_path(self.cx, fn_expr, &paths::ITER_REPEAT)
+            && let ExprKind::Lit(ref lit) = repeat_arg.kind
+            && let LitKind::Int(0, _) = lit.node
 
-            then {
-                true
-            } else {
-                false
-            }
+        {
+            true
+        } else {
+            false
         }
     }
 }

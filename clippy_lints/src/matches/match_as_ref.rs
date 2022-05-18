@@ -27,18 +27,16 @@ pub(crate) fn check(cx: &LateContext<'_>, ex: &Expr<'_>, arms: &[Arm<'_>], expr:
             let output_ty = cx.typeck_results().expr_ty(expr);
             let input_ty = cx.typeck_results().expr_ty(ex);
 
-            let cast = if_chain! {
-                if let ty::Adt(_, substs) = input_ty.kind();
-                let input_ty = substs.type_at(0);
-                if let ty::Adt(_, substs) = output_ty.kind();
-                let output_ty = substs.type_at(0);
-                if let ty::Ref(_, output_ty, _) = *output_ty.kind();
-                if input_ty != output_ty;
-                then {
-                    ".map(|x| x as _)"
-                } else {
-                    ""
-                }
+            let cast = if let ty::Adt(_, substs) = input_ty.kind()
+                && let input_ty = substs.type_at(0)
+                && let ty::Adt(_, substs) = output_ty.kind()
+                && let output_ty = substs.type_at(0)
+                && let ty::Ref(_, output_ty, _) = *output_ty.kind()
+                && input_ty != output_ty
+            {
+                ".map(|x| x as _)"
+            } else {
+                ""
             };
 
             let mut applicability = Applicability::MachineApplicable;
@@ -67,19 +65,17 @@ fn is_none_arm(cx: &LateContext<'_>, arm: &Arm<'_>) -> bool {
 
 // Checks if arm has the form `Some(ref v) => Some(v)` (checks for `ref` and `ref mut`)
 fn is_ref_some_arm(cx: &LateContext<'_>, arm: &Arm<'_>) -> Option<BindingAnnotation> {
-    if_chain! {
-        if let PatKind::TupleStruct(ref qpath, [first_pat, ..], _) = arm.pat.kind;
-        if is_lang_ctor(cx, qpath, LangItem::OptionSome);
-        if let PatKind::Binding(rb, .., ident, _) = first_pat.kind;
-        if rb == BindingAnnotation::Ref || rb == BindingAnnotation::RefMut;
-        if let ExprKind::Call(e, args) = peel_blocks(arm.body).kind;
-        if let ExprKind::Path(ref some_path) = e.kind;
-        if is_lang_ctor(cx, some_path, LangItem::OptionSome) && args.len() == 1;
-        if let ExprKind::Path(QPath::Resolved(_, path2)) = args[0].kind;
-        if path2.segments.len() == 1 && ident.name == path2.segments[0].ident.name;
-        then {
-            return Some(rb)
-        }
+    if let PatKind::TupleStruct(ref qpath, [first_pat, ..], _) = arm.pat.kind
+        && is_lang_ctor(cx, qpath, LangItem::OptionSome)
+        && let PatKind::Binding(rb, .., ident, _) = first_pat.kind
+        && (rb == BindingAnnotation::Ref || rb == BindingAnnotation::RefMut)
+        && let ExprKind::Call(e, args) = peel_blocks(arm.body).kind
+        && let ExprKind::Path(ref some_path) = e.kind
+        && is_lang_ctor(cx, some_path, LangItem::OptionSome) && args.len() == 1
+        && let ExprKind::Path(QPath::Resolved(_, path2)) = args[0].kind
+        && path2.segments.len() == 1 && ident.name == path2.segments[0].ident.name
+    {
+        return Some(rb)
     }
     None
 }

@@ -1,7 +1,6 @@
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::sext;
-use if_chain::if_chain;
 use rustc_hir::{BinOpKind, Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty};
@@ -132,15 +131,12 @@ impl<'tcx> LateLintPass<'tcx> for ModuloArithmetic {
                 if op.node == BinOpKind::Rem {
                     let lhs_operand = analyze_operand(lhs, cx, expr);
                     let rhs_operand = analyze_operand(rhs, cx, expr);
-                    if_chain! {
-                        if let Some(lhs_operand) = lhs_operand;
-                        if let Some(rhs_operand) = rhs_operand;
-                        then {
-                            check_const_operands(cx, expr, &lhs_operand, &rhs_operand);
-                        }
-                        else {
-                            check_non_const_operands(cx, expr, lhs);
-                        }
+                    if let Some(lhs_operand) = lhs_operand
+                        && let Some(rhs_operand) = rhs_operand
+                    {
+                        check_const_operands(cx, expr, &lhs_operand, &rhs_operand);
+                    } else {
+                        check_non_const_operands(cx, expr, lhs);
                     }
                 };
             },

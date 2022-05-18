@@ -1,7 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::paths;
 use clippy_utils::ty::match_type;
-use if_chain::if_chain;
 use rustc_hir::{Expr, ExprKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
@@ -60,29 +59,25 @@ impl<'tcx> LateLintPass<'tcx> for VerboseFileReads {
 }
 
 fn is_file_read_to_end<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> bool {
-    if_chain! {
-        if let ExprKind::MethodCall(method_name, exprs, _) = expr.kind;
-        if method_name.ident.as_str() == "read_to_end";
-        if let ExprKind::Path(QPath::Resolved(None, _)) = &exprs[0].kind;
-        let ty = cx.typeck_results().expr_ty(&exprs[0]);
-        if match_type(cx, ty, &paths::FILE);
-        then {
-            return true
-        }
+    if let ExprKind::MethodCall(method_name, exprs, _) = expr.kind
+        && method_name.ident.as_str() == "read_to_end"
+        && let ExprKind::Path(QPath::Resolved(None, _)) = &exprs[0].kind
+        && let ty = cx.typeck_results().expr_ty(&exprs[0])
+        && match_type(cx, ty, &paths::FILE)
+    {
+        return true
     }
     false
 }
 
 fn is_file_read_to_string<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> bool {
-    if_chain! {
-        if let ExprKind::MethodCall(method_name, exprs, _) = expr.kind;
-        if method_name.ident.as_str() == "read_to_string";
-        if let ExprKind::Path(QPath::Resolved(None, _)) = &exprs[0].kind;
-        let ty = cx.typeck_results().expr_ty(&exprs[0]);
-        if match_type(cx, ty, &paths::FILE);
-        then {
-            return true
-        }
+    if let ExprKind::MethodCall(method_name, exprs, _) = expr.kind
+        && method_name.ident.as_str() == "read_to_string"
+        && let ExprKind::Path(QPath::Resolved(None, _)) = &exprs[0].kind
+        && let ty = cx.typeck_results().expr_ty(&exprs[0])
+        && match_type(cx, ty, &paths::FILE)
+    {
+        return true
     }
     false
 }

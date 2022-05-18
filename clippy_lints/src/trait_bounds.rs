@@ -2,7 +2,6 @@ use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::source::{snippet, snippet_with_applicability};
 use clippy_utils::{SpanlessEq, SpanlessHash};
 use core::hash::{Hash, Hasher};
-use if_chain::if_chain;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_data_structures::unhash::UnhashMap;
 use rustc_errors::Applicability;
@@ -93,47 +92,45 @@ impl<'tcx> LateLintPass<'tcx> for TraitBounds {
         let mut self_bounds_map = FxHashMap::default();
 
         for predicate in item.generics.predicates {
-            if_chain! {
-                if let WherePredicate::BoundPredicate(ref bound_predicate) = predicate;
-                if !bound_predicate.span.from_expansion();
-                if let TyKind::Path(QPath::Resolved(_, Path { segments, .. })) = bound_predicate.bounded_ty.kind;
-                if let Some(PathSegment {
+            if let WherePredicate::BoundPredicate(ref bound_predicate) = predicate
+                && !bound_predicate.span.from_expansion()
+                && let TyKind::Path(QPath::Resolved(_, Path { segments, .. })) = bound_predicate.bounded_ty.kind
+                && let Some(PathSegment {
                     res: Some(Res::SelfTy{ trait_: Some(def_id), alias_to: _ }), ..
-                }) = segments.first();
-                if let Some(
+                }) = segments.first()
+                && let Some(
                     Node::Item(
                         Item {
                             kind: ItemKind::Trait(_, _, _, self_bounds, _),
                             .. }
                         )
-                    ) = cx.tcx.hir().get_if_local(*def_id);
-                then {
-                    if self_bounds_map.is_empty() {
-                        for bound in self_bounds.iter() {
-                            let Some((self_res, self_segments, _)) = get_trait_info_from_bound(bound) else { continue };
-                            self_bounds_map.insert(self_res, self_segments);
-                        }
+                    ) = cx.tcx.hir().get_if_local(*def_id)
+            {
+                if self_bounds_map.is_empty() {
+                    for bound in self_bounds.iter() {
+                        let Some((self_res, self_segments, _)) = get_trait_info_from_bound(bound) else { continue };
+                        self_bounds_map.insert(self_res, self_segments);
                     }
-
-                    bound_predicate
-                        .bounds
-                        .iter()
-                        .filter_map(get_trait_info_from_bound)
-                        .for_each(|(trait_item_res, trait_item_segments, span)| {
-                            if let Some(self_segments) = self_bounds_map.get(&trait_item_res) {
-                                if SpanlessEq::new(cx).eq_path_segments(self_segments, trait_item_segments) {
-                                    span_lint_and_help(
-                                        cx,
-                                        TRAIT_DUPLICATION_IN_BOUNDS,
-                                        span,
-                                        "this trait bound is already specified in trait declaration",
-                                        None,
-                                        "consider removing this trait bound",
-                                    );
-                                }
-                            }
-                        });
                 }
+
+                bound_predicate
+                    .bounds
+                    .iter()
+                    .filter_map(get_trait_info_from_bound)
+                    .for_each(|(trait_item_res, trait_item_segments, span)| {
+                        if let Some(self_segments) = self_bounds_map.get(&trait_item_res) {
+                            if SpanlessEq::new(cx).eq_path_segments(self_segments, trait_item_segments) {
+                                span_lint_and_help(
+                                    cx,
+                                    TRAIT_DUPLICATION_IN_BOUNDS,
+                                    span,
+                                    "this trait bound is already specified in trait declaration",
+                                    None,
+                                    "consider removing this trait bound",
+                                );
+                            }
+                        }
+                    });
             }
         }
     }
@@ -166,49 +163,47 @@ impl TraitBounds {
         let mut map: UnhashMap<SpanlessTy<'_, '_>, Vec<&GenericBound<'_>>> = UnhashMap::default();
         let mut applicability = Applicability::MaybeIncorrect;
         for bound in gen.predicates {
-            if_chain! {
-                if let WherePredicate::BoundPredicate(ref p) = bound;
-                if p.bounds.len() as u64 <= self.max_trait_bounds;
-                if !p.span.from_expansion();
-                if let Some(ref v) = map.insert(
+            if let WherePredicate::BoundPredicate(ref p) = bound
+                && p.bounds.len() as u64 <= self.max_trait_bounds
+                && !p.span.from_expansion()
+                && let Some(v) = map.insert(
                     SpanlessTy { ty: p.bounded_ty, cx },
                     p.bounds.iter().collect::<Vec<_>>()
-                );
+                )
 
-                then {
-                    let mut hint_string = format!(
-                        "consider combining the bounds: `{}:",
-                        snippet(cx, p.bounded_ty.span, "_")
-                    );
-                    for b in v.iter() {
-                        if let GenericBound::Trait(ref poly_trait_ref, _) = b {
-                            let path = &poly_trait_ref.trait_ref.path;
-                            let _ = write!(hint_string,
-                                " {} +",
-                                snippet_with_applicability(cx, path.span, "..", &mut applicability)
-                            );
-                        }
+            {
+                let mut hint_string = format!(
+                    "consider combining the bounds: `{}:",
+                    snippet(cx, p.bounded_ty.span, "_")
+                );
+                for b in &v {
+                    if let GenericBound::Trait(ref poly_trait_ref, _) = b {
+                        let path = &poly_trait_ref.trait_ref.path;
+                        let _ = write!(hint_string,
+                            " {} +",
+                            snippet_with_applicability(cx, path.span, "..", &mut applicability)
+                        );
                     }
-                    for b in p.bounds.iter() {
-                        if let GenericBound::Trait(ref poly_trait_ref, _) = b {
-                            let path = &poly_trait_ref.trait_ref.path;
-                            let _ = write!(hint_string,
-                                " {} +",
-                                snippet_with_applicability(cx, path.span, "..", &mut applicability)
-                            );
-                        }
-                    }
-                    hint_string.truncate(hint_string.len() - 2);
-                    hint_string.push('`');
-                    span_lint_and_help(
-                        cx,
-                        TYPE_REPETITION_IN_BOUNDS,
-                        p.span,
-                        "this type has already been used as a bound predicate",
-                        None,
-                        &hint_string,
-                    );
                 }
+                for b in p.bounds.iter() {
+                    if let GenericBound::Trait(ref poly_trait_ref, _) = b {
+                        let path = &poly_trait_ref.trait_ref.path;
+                        let _ = write!(hint_string,
+                            " {} +",
+                            snippet_with_applicability(cx, path.span, "..", &mut applicability)
+                        );
+                    }
+                }
+                hint_string.truncate(hint_string.len() - 2);
+                hint_string.push('`');
+                span_lint_and_help(
+                    cx,
+                    TYPE_REPETITION_IN_BOUNDS,
+                    p.span,
+                    "this type has already been used as a bound predicate",
+                    None,
+                    &hint_string,
+                );
             }
         }
     }
@@ -221,29 +216,26 @@ fn check_trait_bound_duplication(cx: &LateContext<'_>, gen: &'_ Generics<'_>) {
 
     let mut map = FxHashMap::<_, Vec<_>>::default();
     for predicate in gen.predicates {
-        if_chain! {
-            if let WherePredicate::BoundPredicate(ref bound_predicate) = predicate;
-            if !bound_predicate.span.from_expansion();
-            if let TyKind::Path(QPath::Resolved(_, Path { segments, .. })) = bound_predicate.bounded_ty.kind;
-            if let Some(segment) = segments.first();
-            then {
-                for (res_where, _, span_where) in bound_predicate.bounds.iter().filter_map(get_trait_info_from_bound) {
-                    let trait_resolutions_direct = map.entry(segment.ident).or_default();
-                    if let Some((_, span_direct)) = trait_resolutions_direct
-                                                .iter()
-                                                .find(|(res_direct, _)| *res_direct == res_where) {
-                        span_lint_and_help(
-                            cx,
-                            TRAIT_DUPLICATION_IN_BOUNDS,
-                            *span_direct,
-                            "this trait bound is already specified in the where clause",
-                            None,
-                            "consider removing this trait bound",
-                        );
-                    }
-                    else {
-                        trait_resolutions_direct.push((res_where, span_where));
-                    }
+        if let WherePredicate::BoundPredicate(ref bound_predicate) = predicate
+            && !bound_predicate.span.from_expansion()
+            && let TyKind::Path(QPath::Resolved(_, Path { segments, .. })) = bound_predicate.bounded_ty.kind
+            && let Some(segment) = segments.first()
+        {
+            for (res_where, _, span_where) in bound_predicate.bounds.iter().filter_map(get_trait_info_from_bound) {
+                let trait_resolutions_direct = map.entry(segment.ident).or_default();
+                if let Some((_, span_direct)) = trait_resolutions_direct
+                                            .iter()
+                                            .find(|(res_direct, _)| *res_direct == res_where) {
+                    span_lint_and_help(
+                        cx,
+                        TRAIT_DUPLICATION_IN_BOUNDS,
+                        *span_direct,
+                        "this trait bound is already specified in the where clause",
+                        None,
+                        "consider removing this trait bound",
+                    );
+                } else {
+                    trait_resolutions_direct.push((res_where, span_where));
                 }
             }
         }
