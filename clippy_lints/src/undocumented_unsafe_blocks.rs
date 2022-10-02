@@ -40,14 +40,14 @@ declare_clippy_lint! {
     /// and bugs.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::ptr::NonNull;
     /// let a = &mut 42;
     ///
     /// let ptr = unsafe { NonNull::new_unchecked(a) };
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use std::ptr::NonNull;
     /// let a = &mut 42;
     ///

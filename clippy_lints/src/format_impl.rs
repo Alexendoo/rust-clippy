@@ -19,7 +19,7 @@ declare_clippy_lint! {
     ///
     /// ### Example
     ///
-    /// ```rust
+    /// ```no_run
     /// use std::fmt;
     ///
     /// struct Structure(i32);
@@ -31,7 +31,7 @@ declare_clippy_lint! {
     ///
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use std::fmt;
     ///
     /// struct Structure(i32);
@@ -57,7 +57,7 @@ declare_clippy_lint! {
     /// should write to the `Formatter`, not stdout/stderr.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::fmt::{Display, Error, Formatter};
     ///
     /// struct S;
@@ -70,7 +70,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use std::fmt::{Display, Error, Formatter};
     ///
     /// struct S;

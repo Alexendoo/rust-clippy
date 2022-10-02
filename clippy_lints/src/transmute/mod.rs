@@ -76,12 +76,12 @@ declare_clippy_lint! {
     ///
     /// ### Example
     ///
-    /// ```rust
+    /// ```no_run
     /// # let p: *const [i32] = &[];
     /// unsafe { std::mem::transmute::<*const [i32], *const [u16]>(p) };
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let p: *const [i32] = &[];
     /// p as *const [u16];
     /// ```
@@ -157,7 +157,7 @@ declare_clippy_lint! {
     /// [`from_u32_unchecked`]: https://doc.rust-lang.org/std/char/fn.from_u32_unchecked.html
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = 1_u32;
     /// unsafe {
     ///     let _: char = std::mem::transmute(x); // where x: u32
@@ -191,7 +191,7 @@ declare_clippy_lint! {
     /// [`from_utf8_unchecked`]: https://doc.rust-lang.org/std/str/fn.from_utf8_unchecked.html
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let b: &[u8] = &[1_u8, 2_u8];
     /// unsafe {
     ///     let _: &str = std::mem::transmute(b); // where b: &[u8]
@@ -214,7 +214,7 @@ declare_clippy_lint! {
     /// This might result in an invalid in-memory representation of a `bool`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = 1_u8;
     /// unsafe {
     ///     let _: bool = std::mem::transmute(x); // where x: u8
@@ -238,7 +238,7 @@ declare_clippy_lint! {
     /// and safe.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// unsafe {
     ///     let _: f32 = std::mem::transmute(1_u32); // where x: u32
     /// }
@@ -261,7 +261,7 @@ declare_clippy_lint! {
     /// and safe.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// unsafe {
     ///     let _: u32 = std::mem::transmute(1f32);
     /// }
@@ -284,7 +284,7 @@ declare_clippy_lint! {
     /// is intuitive and safe.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// unsafe {
     ///     let x: [u8; 8] = std::mem::transmute(1i64);
     /// }
@@ -308,7 +308,7 @@ declare_clippy_lint! {
     /// written as casts.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let ptr = &1u32 as *const u32;
     /// unsafe {
     ///     // pointer-to-pointer transmute
@@ -339,7 +339,7 @@ declare_clippy_lint! {
     /// collection, so we just lint the ones that come with `std`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// // different size, therefore likely out-of-bounds memory access
     /// // You absolutely do not want this in your code!
     /// unsafe {
@@ -349,7 +349,7 @@ declare_clippy_lint! {
     ///
     /// You must always iterate, map and collect the values:
     ///
-    /// ```rust
+    /// ```no_run
     /// vec![2_u16].into_iter().map(u32::from).collect::<Vec<_>>();
     /// ```
     #[clippy::version = "1.40.0"]
@@ -371,12 +371,12 @@ declare_clippy_lint! {
     /// [#8496](https://github.com/rust-lang/rust-clippy/issues/8496) for more details.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct Foo<T>(u32, T);
     /// let _ = unsafe { core::mem::transmute::<Foo<u32>, Foo<i32>>(Foo(0u32, 0u32)) };
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// #[repr(C)]
     /// struct Foo<T>(u32, T);
     /// let _ = unsafe { core::mem::transmute::<Foo<u32>, Foo<i32>>(Foo(0u32, 0u32)) };
@@ -400,7 +400,7 @@ declare_clippy_lint! {
     /// call, aren't detectable yet.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let null_ref: &u64 = unsafe { std::mem::transmute(0 as *const u64) };
     /// ```
     #[clippy::version = "1.35.0"]

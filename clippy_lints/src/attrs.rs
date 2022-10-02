@@ -126,7 +126,7 @@ declare_clippy_lint! {
     /// a valid semver. Failing that, the contained information is useless.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #[deprecated(since = "forever")]
     /// fn something_else() { /* ... */ }
     /// ```
@@ -153,14 +153,14 @@ declare_clippy_lint! {
     /// currently works for basic cases but is not perfect.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #[allow(dead_code)]
     ///
     /// fn not_quite_good_code() { }
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// // Good (as inner attribute)
     /// #![allow(dead_code)]
     ///
@@ -187,12 +187,12 @@ declare_clippy_lint! {
     /// These lints should only be enabled on a lint-by-lint basis and with careful consideration.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #![deny(clippy::restriction)]
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// #![deny(clippy::as_conversions)]
     /// ```
     #[clippy::version = "1.47.0"]
@@ -216,13 +216,13 @@ declare_clippy_lint! {
     /// [#3123](https://github.com/rust-lang/rust-clippy/pull/3123#issuecomment-422321765)
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #[cfg_attr(rustfmt, rustfmt_skip)]
     /// fn main() { }
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// #[rustfmt::skip]
     /// fn main() { }
     /// ```
@@ -241,13 +241,13 @@ declare_clippy_lint! {
     /// by the conditional compilation engine.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #[cfg(linux)]
     /// fn conditional() { }
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # mod hidden {
     /// #[cfg(target_os = "linux")]
     /// fn conditional() { }
@@ -276,14 +276,14 @@ declare_clippy_lint! {
     /// ensure that others understand the reasoning
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #![feature(lint_reasons)]
     ///
     /// #![allow(clippy::some_lint)]
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// #![feature(lint_reasons)]
     ///
     /// #![allow(clippy::some_lint, reason = "False positive rust-lang/rust-clippy#1002020")]

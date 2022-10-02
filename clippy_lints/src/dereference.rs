@@ -39,14 +39,14 @@ declare_clippy_lint! {
     /// when not part of a method chain.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::ops::Deref;
     /// let a: &mut String = &mut String::from("foo");
     /// let b: &str = a.deref();
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let a: &mut String = &mut String::from("foo");
     /// let b = &*a;
     /// ```
@@ -71,7 +71,7 @@ declare_clippy_lint! {
     /// the expression.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// fn fun(_a: &i32) {}
     ///
     /// let x: &i32 = &&&&&&5;
@@ -79,7 +79,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # fn fun(_a: &i32) {}
     /// let x: &i32 = &5;
     /// fun(x);
@@ -98,7 +98,7 @@ declare_clippy_lint! {
     /// The address-of operator at the use site is clearer about the need for a reference.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = Some("");
     /// if let Some(ref x) = x {
     ///     // use `x` here
@@ -106,7 +106,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let x = Some("");
     /// if let Some(x) = x {
     ///     // use `&x` here
@@ -126,12 +126,12 @@ declare_clippy_lint! {
     /// This unnecessarily complicates the code.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = String::new();
     /// let y: &str = &*x;
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let x = String::new();
     /// let y: &str = &x;
     /// ```

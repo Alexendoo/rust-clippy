@@ -43,7 +43,7 @@ declare_clippy_lint! {
     /// value, which is likely what was intended.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = Box::new(1);
     /// std::mem::forget(&x) // Should have been forget(x), x will still be dropped
     /// ```
@@ -64,7 +64,7 @@ declare_clippy_lint! {
     /// value will be copied and moved into the function on invocation.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x: i32 = 42; // i32 implements Copy
     /// std::mem::drop(x) // A copy of x is passed to the function, leaving the
     ///                   // original unaffected
@@ -92,7 +92,7 @@ declare_clippy_lint! {
     /// is nothing for `std::mem::forget` to ignore.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x: i32 = 42; // i32 implements Copy
     /// std::mem::forget(x) // A copy of x is passed to the function, leaving the
     ///                     // original unaffected
@@ -112,7 +112,7 @@ declare_clippy_lint! {
     /// have been intended.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct Foo;
     /// let x = Foo;
     /// std::mem::drop(x);
@@ -132,7 +132,7 @@ declare_clippy_lint! {
     /// have been intended.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct Foo;
     /// let x = Foo;
     /// std::mem::forget(x);
@@ -155,12 +155,12 @@ declare_clippy_lint! {
     /// to a different name and calls it that way.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct S;
     /// drop(std::mem::ManuallyDrop::new(S));
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// struct S;
     /// unsafe {
     ///     std::mem::ManuallyDrop::drop(&mut std::mem::ManuallyDrop::new(S));

@@ -29,7 +29,7 @@ declare_clippy_lint! {
     ///
     /// Also, the lint only runs one pass over the code. Consider these two non-const functions:
     ///
-    /// ```rust
+    /// ```no_run
     /// fn a() -> i32 {
     ///     0
     /// }
@@ -43,7 +43,7 @@ declare_clippy_lint! {
     /// will suggest to make `b` const, too.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # struct Foo {
     /// #     random_number: usize,
     /// # }
@@ -56,7 +56,7 @@ declare_clippy_lint! {
     ///
     /// Could be a const fn:
     ///
-    /// ```rust
+    /// ```no_run
     /// # struct Foo {
     /// #     random_number: usize,
     /// # }

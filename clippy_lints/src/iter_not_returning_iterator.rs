@@ -12,7 +12,7 @@ declare_clippy_lint! {
     /// Methods named `iter` or `iter_mut` conventionally return an `Iterator`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// // `String` does not implement `Iterator`
     /// struct Data {}
     /// impl Data {
@@ -22,7 +22,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use std::str::Chars;
     /// struct Data {}
     /// impl Data {

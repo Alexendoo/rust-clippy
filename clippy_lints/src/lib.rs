@@ -71,7 +71,7 @@ use rustc_session::Session;
 ///
 /// # Example
 ///
-/// ```
+/// ```no_run
 /// #![feature(rustc_private)]
 /// extern crate rustc_session;
 /// use rustc_session::declare_tool_lint;

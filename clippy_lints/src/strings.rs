@@ -24,7 +24,7 @@ declare_clippy_lint! {
     /// `.push_str(_)` method is more readable.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let mut x = "Hello".to_owned();
     /// x = x + ", World";
     ///
@@ -56,13 +56,13 @@ declare_clippy_lint! {
     /// particular lint `allow` by default.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x = "Hello".to_owned();
     /// x + ", World";
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let mut x = "Hello".to_owned();
     /// x.push_str(", World");
     /// ```
@@ -104,12 +104,12 @@ declare_clippy_lint! {
     /// more readable than a function call.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let bstr = "a byte string".as_bytes();
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let bstr = b"a byte string";
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -229,12 +229,12 @@ declare_clippy_lint! {
     /// It's unnecessary, the string can be used directly.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// std::str::from_utf8(&"Hello World!".as_bytes()[6..11]).unwrap();
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// &"Hello World!"[6..11];
     /// ```
     #[clippy::version = "1.50.0"]
@@ -373,12 +373,12 @@ declare_clippy_lint! {
     /// expressed with `.to_owned()`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// // example code where clippy issues a warning
     /// let _ = "str".to_string();
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// // example code which does not raise clippy warning
     /// let _ = "str".to_owned();
     /// ```
@@ -421,13 +421,13 @@ declare_clippy_lint! {
     /// When called on a `String` it only clones the `String`, which can be better expressed with `.clone()`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// // example code where clippy issues a warning
     /// let msg = String::from("Hello World");
     /// let _ = msg.to_string();
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// // example code which does not raise clippy warning
     /// let msg = String::from("Hello World");
     /// let _ = msg.clone();
@@ -469,11 +469,11 @@ declare_clippy_lint! {
     /// `split_whitespace` already ignores leading and trailing whitespace.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// " A B C ".trim().split_whitespace();
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// " A B C ".split_whitespace();
     /// ```
     #[clippy::version = "1.62.0"]

@@ -19,7 +19,7 @@ declare_clippy_lint! {
     /// or just a leftover after a refactor.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let collection = vec![1, 2, 3];
     /// let iter = collection.iter().peekable();
     ///
@@ -29,7 +29,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let collection = vec![1, 2, 3];
     /// let iter = collection.iter();
     ///

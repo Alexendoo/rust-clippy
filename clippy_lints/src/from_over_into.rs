@@ -15,7 +15,7 @@ declare_clippy_lint! {
     /// According the std docs implementing `From<..>` is preferred since it gives you `Into<..>` for free where the reverse isn't true.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct StringWrapper(String);
     ///
     /// impl Into<StringWrapper> for String {
@@ -25,7 +25,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// struct StringWrapper(String);
     ///
     /// impl From<String> for StringWrapper {

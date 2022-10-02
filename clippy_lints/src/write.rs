@@ -17,12 +17,12 @@ declare_clippy_lint! {
     /// You should use `println!()`, which is simpler.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// println!("");
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// println!();
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -41,12 +41,12 @@ declare_clippy_lint! {
     /// newline.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let name = "World";
     /// print!("Hello {}!\n", name);
     /// ```
     /// use println!() instead
-    /// ```rust
+    /// ```no_run
     /// # let name = "World";
     /// println!("Hello {}!", name);
     /// ```
@@ -69,7 +69,7 @@ declare_clippy_lint! {
     /// Only catches `print!` and `println!` calls.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// println!("Hello world!");
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -91,7 +91,7 @@ declare_clippy_lint! {
     /// Only catches `eprint!` and `eprintln!` calls.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// eprintln!("Hello world!");
     /// ```
     #[clippy::version = "1.50.0"]
@@ -110,7 +110,7 @@ declare_clippy_lint! {
     /// debugging Rust code. It should not be used in user-facing output.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let foo = "bar";
     /// println!("{:?}", foo);
     /// ```
@@ -130,11 +130,11 @@ declare_clippy_lint! {
     /// (i.e., just put the literal in the format string)
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// println!("{}", "foo");
     /// ```
     /// use the literal without formatting:
-    /// ```rust
+    /// ```no_run
     /// println!("foo");
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -152,14 +152,14 @@ declare_clippy_lint! {
     /// You should use `writeln!(buf)`, which is simpler.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// writeln!(buf, "");
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// writeln!(buf);
@@ -181,7 +181,7 @@ declare_clippy_lint! {
     /// newline.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// # let name = "World";
@@ -189,7 +189,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// # let name = "World";
@@ -211,14 +211,14 @@ declare_clippy_lint! {
     /// (i.e., just put the literal in the format string)
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// writeln!(buf, "{}", "foo");
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # use std::fmt::Write;
     /// # let mut buf = String::new();
     /// writeln!(buf, "foo");

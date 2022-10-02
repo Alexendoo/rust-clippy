@@ -25,12 +25,12 @@ declare_clippy_lint! {
     /// The recommended code is both shorter and avoids a temporary allocation.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::panic::Location;
     /// println!("error: {}", format!("something failed at {}", Location::caller()));
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # use std::panic::Location;
     /// println!("error: something failed at {}", Location::caller());
     /// ```
@@ -51,12 +51,12 @@ declare_clippy_lint! {
     /// unnecessary.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::panic::Location;
     /// println!("error: something failed at {}", Location::caller().to_string());
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # use std::panic::Location;
     /// println!("error: something failed at {}", Location::caller());
     /// ```
@@ -77,7 +77,7 @@ declare_clippy_lint! {
     /// The inlined syntax, where allowed, is simpler.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let var = 42;
     /// # let width = 1;
     /// # let prec = 2;
@@ -88,7 +88,7 @@ declare_clippy_lint! {
     /// format!("{:.*}", prec, var);
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let var = 42;
     /// # let width = 1;
     /// # let prec = 2;

@@ -21,7 +21,7 @@ declare_clippy_lint! {
     /// `vec![0; len]`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use core::iter::repeat;
     /// # let len = 4;
     /// let mut vec1 = Vec::with_capacity(len);
@@ -35,7 +35,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let len = 4;
     /// let mut vec1 = vec![0; len];
     /// let mut vec2 = vec![0; len];

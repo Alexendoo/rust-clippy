@@ -15,7 +15,7 @@ declare_clippy_lint! {
     /// Creating such a `str` would result in undefined behavior
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # #[allow(unused)]
     /// unsafe {
     ///     std::str::from_utf8_unchecked(b"cl\x82ippy");

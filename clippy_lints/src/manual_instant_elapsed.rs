@@ -16,13 +16,13 @@ declare_clippy_lint! {
     /// `prev_instant.elapsed()` also more clearly signals intention.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::time::Instant;
     /// let prev_instant = Instant::now();
     /// let duration = Instant::now() - prev_instant;
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use std::time::Instant;
     /// let prev_instant = Instant::now();
     /// let duration = prev_instant.elapsed();

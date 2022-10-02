@@ -27,7 +27,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let x = [1, 2, 3, 4];
     /// // Index within bounds
     ///
@@ -66,7 +66,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # #![allow(unused)]
     ///
     /// # let x = vec![0; 5];

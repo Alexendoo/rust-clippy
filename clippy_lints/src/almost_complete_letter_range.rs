@@ -18,11 +18,11 @@ declare_clippy_lint! {
     /// This (`'a'..'z'`) is almost certainly a typo meant to include all letters.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let _ = 'a'..'z';
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let _ = 'a'..='z';
     /// ```
     #[clippy::version = "1.63.0"]

@@ -17,7 +17,7 @@ declare_clippy_lint! {
     /// expr
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// fn f() -> Result<u32, u32> {
     ///     Ok(0)
     /// }
@@ -73,7 +73,7 @@ declare_clippy_lint! {
     /// better and is less error-prone.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # struct DroppableItem;
     /// {
     ///     let _ = DroppableItem;
@@ -83,7 +83,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # struct DroppableItem;
     /// {
     ///     let _droppable = DroppableItem;

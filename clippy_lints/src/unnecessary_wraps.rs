@@ -24,7 +24,7 @@ declare_clippy_lint! {
     /// fit some external requirement.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// fn get_cool_number(a: bool, b: bool) -> Option<i32> {
     ///     if a && b {
     ///         return Some(50);
@@ -37,7 +37,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// fn get_cool_number(a: bool, b: bool) -> i32 {
     ///     if a && b {
     ///         return 50;

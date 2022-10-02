@@ -28,14 +28,14 @@ declare_clippy_lint! {
     /// ```
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let s = &String::new();
     ///
     /// let a: &String = &* s;
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let s = &String::new();
     /// let a: &String = s;
     /// ```

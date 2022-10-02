@@ -36,7 +36,7 @@ declare_clippy_lint! {
     /// It is not as fast as a memcpy.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let src = vec![1];
     /// # let mut dst = vec![0; 65];
     /// for i in 0..src.len() {
@@ -45,7 +45,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let src = vec![1];
     /// # let mut dst = vec![0; 65];
     /// dst[64..(src.len() + 64)].clone_from_slice(&src[..]);
@@ -66,7 +66,7 @@ declare_clippy_lint! {
     /// more clear and is probably faster.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let vec = vec!['a', 'b', 'c'];
     /// for i in 0..vec.len() {
     ///     println!("{}", vec[i]);
@@ -74,7 +74,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let vec = vec!['a', 'b', 'c'];
     /// for i in vec {
     ///     println!("{}", i);
@@ -99,7 +99,7 @@ declare_clippy_lint! {
     /// types.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// // with `y` a `Vec` or slice:
     /// # let y = vec![1];
     /// for x in y.iter() {
@@ -108,7 +108,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let y = vec![1];
     /// for x in &y {
     ///     // ..
@@ -129,7 +129,7 @@ declare_clippy_lint! {
     /// Readability.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let y = vec![1];
     /// // with `y` a `Vec` or slice:
     /// for x in y.into_iter() {
@@ -137,7 +137,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// can be rewritten to
-    /// ```rust
+    /// ```no_run
     /// # let y = vec![1];
     /// for x in y {
     ///     // ..
@@ -182,7 +182,7 @@ declare_clippy_lint! {
     /// let`.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let opt = Some(1);
     /// # let res: Result<i32, std::io::Error> = Ok(1);
     /// for x in opt {
@@ -199,7 +199,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let opt = Some(1);
     /// # let res: Result<i32, std::io::Error> = Ok(1);
     /// if let Some(x) = opt {
@@ -259,7 +259,7 @@ declare_clippy_lint! {
     /// when this allocation may not be needed.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let iterator = vec![1].into_iter();
     /// let len = iterator.clone().collect::<Vec<_>>().len();
     /// // should be
@@ -281,7 +281,7 @@ declare_clippy_lint! {
     /// declutters the code and may be faster in some instances.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # let v = vec![1];
     /// # fn bar(bar: usize, baz: usize) {}
     /// let mut i = 0;
@@ -292,7 +292,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # let v = vec![1];
     /// # fn bar(bar: usize, baz: usize) {}
     /// for (i, item) in v.iter().enumerate() { bar(i, *item); }
@@ -403,7 +403,7 @@ declare_clippy_lint! {
     /// code.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// loop {
     ///     ..;
     ///     break;
@@ -426,7 +426,7 @@ declare_clippy_lint! {
     /// False positive when mutation is followed by a `break`, but the `break` is not immediately
     /// after the mutation:
     ///
-    /// ```rust
+    /// ```no_run
     /// let mut x = 5;
     /// for _ in 0..x {
     ///     x += 1; // x is a range bound that is mutated
@@ -438,7 +438,7 @@ declare_clippy_lint! {
     /// False positive on nested loops ([#6072](https://github.com/rust-lang/rust-clippy/issues/6072))
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let mut foo = 42;
     /// for i in 0..foo {
     ///     foo -= 1;
@@ -466,7 +466,7 @@ declare_clippy_lint! {
     /// in the condition and only `Upvar` `b` gets mutated in the body, the lint will not trigger.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let i = 0;
     /// while i > 10 {
     ///     println!("let me loop forever!");
@@ -489,7 +489,7 @@ declare_clippy_lint! {
     /// have better performance.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let item1 = 2;
     /// let item2 = 3;
     /// let mut vec: Vec<u8> = Vec::new();
@@ -502,7 +502,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let item1 = 2;
     /// let item2 = 3;
     /// let mut vec: Vec<u8> = vec![item1; 20];
@@ -523,7 +523,7 @@ declare_clippy_lint! {
     /// single element.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let item1 = 2;
     /// for item in &[item1] {
     ///     println!("{}", item);
@@ -531,7 +531,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let item1 = 2;
     /// let item = &item1;
     /// println!("{}", item);
@@ -553,7 +553,7 @@ declare_clippy_lint! {
     ///
     /// ### Example
     ///
-    /// ```rust
+    /// ```no_run
     /// let x = vec![Some(1), Some(2), Some(3)];
     /// for n in x {
     ///     if let Some(n) = n {
@@ -562,7 +562,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let x = vec![Some(1), Some(2), Some(3)];
     /// for n in x.into_iter().flatten() {
     ///     println!("{}", n);
@@ -619,7 +619,7 @@ declare_clippy_lint! {
     ///
     /// ### Example
     ///
-    /// ```rust
+    /// ```no_run
     /// fn example(arr: Vec<i32>) -> Option<i32> {
     ///     for el in arr {
     ///         if el == 1 {
@@ -630,7 +630,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// fn example(arr: Vec<i32>) -> Option<i32> {
     ///     arr.into_iter().find(|&el| el == 1)
     /// }

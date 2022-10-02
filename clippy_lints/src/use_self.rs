@@ -33,7 +33,7 @@ declare_clippy_lint! {
     /// - False positive with associated types in traits (#4140)
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct Foo;
     /// impl Foo {
     ///     fn new() -> Foo {
@@ -42,7 +42,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// could be
-    /// ```rust
+    /// ```no_run
     /// struct Foo;
     /// impl Foo {
     ///     fn new() -> Self {

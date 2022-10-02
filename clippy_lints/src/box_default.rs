@@ -22,11 +22,11 @@ declare_clippy_lint! {
     /// e.g. target operating system.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let x: Box<String> = Box::new(Default::default());
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let x: Box<String> = Box::default();
     /// ```
     #[clippy::version = "1.65.0"]

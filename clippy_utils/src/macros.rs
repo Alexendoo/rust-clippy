@@ -573,7 +573,7 @@ pub enum FormatParamUsage {
 
 /// A `FormatParam` is any place in a `FormatArgument` that refers to a supplied value, e.g.
 ///
-/// ```
+/// ```no_run
 /// let precision = 2;
 /// format!("{:.precision$}", 0.1234);
 /// ```

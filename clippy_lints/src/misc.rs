@@ -37,12 +37,12 @@ declare_clippy_lint! {
     /// dereferences, e.g., changing `*x` to `x` within the function.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// fn foo(ref _x: u8) {}
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// fn foo(_x: &u8) {}
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -65,7 +65,7 @@ declare_clippy_lint! {
     /// macro, it has been allowed in the mean time.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let _x = 0;
     /// let y = _x + 1; // Here we are using `_x`, even though it has a leading
     ///                 // underscore. We should rename `_x` to `x`
@@ -106,12 +106,12 @@ declare_clippy_lint! {
     /// {`std`, `core`}`::ptr::`{`null`, `null_mut`}.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// let a = 0 as *const u32;
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// let a = std::ptr::null::<u32>();
     /// ```
     #[clippy::version = "pre 1.29.0"]

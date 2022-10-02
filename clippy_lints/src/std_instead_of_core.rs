@@ -18,11 +18,11 @@ declare_clippy_lint! {
     /// migrating to become `no_std` compatible.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::hash::Hasher;
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use core::hash::Hasher;
     /// ```
     #[clippy::version = "1.64.0"]
@@ -43,11 +43,11 @@ declare_clippy_lint! {
     /// for crates migrating to become `no_std` compatible.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// use std::vec::Vec;
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # extern crate alloc;
     /// use alloc::vec::Vec;
     /// ```
@@ -69,12 +69,12 @@ declare_clippy_lint! {
     /// is also useful for crates migrating to become `no_std` compatible.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # extern crate alloc;
     /// use alloc::slice::from_ref;
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// use core::slice::from_ref;
     /// ```
     #[clippy::version = "1.64.0"]

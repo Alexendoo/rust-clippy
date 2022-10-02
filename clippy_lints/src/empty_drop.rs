@@ -15,7 +15,7 @@ declare_clippy_lint! {
     /// destructured, which might be the intention behind adding the implementation as a marker.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// struct S;
     ///
     /// impl Drop for S {
@@ -23,7 +23,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// struct S;
     /// ```
     #[clippy::version = "1.62.0"]

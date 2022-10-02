@@ -14,7 +14,7 @@ declare_clippy_lint! {
     /// destructor, possibly causing leaks.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # use std::mem;
     /// # use std::rc::Rc;
     /// mem::forget(Rc::new(55))

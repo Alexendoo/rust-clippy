@@ -20,7 +20,7 @@ declare_clippy_lint! {
     /// grouping some parameters into a new type.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// # struct Color;
     /// fn foo(x: u32, y: u32, name: &str, c: Color, w: f32, h: f32, a: f32, b: f32) {
     ///     // ..
@@ -43,7 +43,7 @@ declare_clippy_lint! {
     /// multiple functions.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// fn im_too_long() {
     ///     println!("");
     ///     // ... 100 more LoC
@@ -103,7 +103,7 @@ declare_clippy_lint! {
     /// a remnant of a refactoring that removed the return type.
     ///
     /// ### Examples
-    /// ```rust
+    /// ```no_run
     /// #[must_use]
     /// fn useless() { }
     /// ```
@@ -125,7 +125,7 @@ declare_clippy_lint! {
     /// attribute to improve the lint message.
     ///
     /// ### Examples
-    /// ```rust
+    /// ```no_run
     /// #[must_use]
     /// fn double_must_use() -> Result<(), ()> {
     ///     unimplemented!();
@@ -157,7 +157,7 @@ declare_clippy_lint! {
     /// `#[must_use]`.
     ///
     /// ### Examples
-    /// ```rust
+    /// ```no_run
     /// // this could be annotated with `#[must_use]`.
     /// fn id<T>(t: T) -> T { t }
     /// ```
@@ -185,7 +185,7 @@ declare_clippy_lint! {
     /// instead.
     ///
     /// ### Examples
-    /// ```rust
+    /// ```no_run
     /// pub fn read_u8() -> Result<u8, ()> { Err(()) }
     /// ```
     /// should become
@@ -231,7 +231,7 @@ declare_clippy_lint! {
     /// The size determined by Clippy is platform-dependent.
     ///
     /// ### Examples
-    /// ```rust
+    /// ```no_run
     /// pub enum ParseError {
     ///     UnparsedBytes([u8; 512]),
     ///     UnexpectedEof,
@@ -243,7 +243,7 @@ declare_clippy_lint! {
     /// }
     /// ```
     /// should be
-    /// ```
+    /// ```no_run
     /// pub enum ParseError {
     ///     UnparsedBytes(Box<[u8; 512]>),
     ///     UnexpectedEof,

@@ -59,12 +59,12 @@ declare_clippy_lint! {
     ///
     /// ### Example
     ///
-    /// ```rust
+    /// ```no_run
     /// fn foo(v: &u32) {}
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// fn foo(v: u32) {}
     /// ```
     #[clippy::version = "pre 1.29.0"]
@@ -87,7 +87,7 @@ declare_clippy_lint! {
     /// `memcpy`, which can be expensive.
     ///
     /// ### Example
-    /// ```rust
+    /// ```no_run
     /// #[derive(Clone, Copy)]
     /// struct TooLarge([u8; 2048]);
     ///
@@ -95,7 +95,7 @@ declare_clippy_lint! {
     /// ```
     ///
     /// Use instead:
-    /// ```rust
+    /// ```no_run
     /// # #[derive(Clone, Copy)]
     /// # struct TooLarge([u8; 2048]);
     /// fn foo(v: &TooLarge) {}
