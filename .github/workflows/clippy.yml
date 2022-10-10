@@ -49,6 +49,15 @@ jobs:
         SYSROOT=$(rustc --print sysroot)
         echo "LD_LIBRARY_PATH=${SYSROOT}/lib${LD_LIBRARY_PATH+:${LD_LIBRARY_PATH}}" >> $GITHUB_ENV
 
+    - name: Check Changelog
+      if: github.event_name == 'pull_request'
+      run: |
+        if ! grep -q '^changelog:\s*\S' <<< "${{ github.event.pull_request.body }}"; then
+          # echo message1
+          echo '::error ::message2'
+          # exit 1
+        fi
+
     - name: Build
       run: cargo build --features deny-warnings,internal
 
