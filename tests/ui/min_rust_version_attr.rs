@@ -32,7 +32,7 @@ fn match_like_matches() {
 fn match_same_arms() {
     match (1, 2, 3) {
         (1, .., 3) => 42,
-        (.., 3) => 42, //~ ERROR match arms have same body
+        (.., 3) => 42, // ERROR match arms have same body
         _ => 0,
     };
 }
@@ -40,7 +40,7 @@ fn match_same_arms() {
 fn match_same_arms2() {
     let _ = match Some(42) {
         Some(_) => 24,
-        None => 24, //~ ERROR match arms have same body
+        None => 24, // ERROR match arms have same body
     };
 }
 

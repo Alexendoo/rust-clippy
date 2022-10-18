@@ -10,27 +10,27 @@ fn match_same_arms() {
     let _ = match Abc::A {
         Abc::A => 0,
         Abc::B => 1,
-        _ => 0, //~ ERROR match arms have same body
+        _ => 0, // ERROR match arms have same body
     };
 
     match (1, 2, 3) {
         (1, .., 3) => 42,
-        (.., 3) => 42, //~ ERROR match arms have same body
+        (.., 3) => 42, // ERROR match arms have same body
         _ => 0,
     };
 
     let _ = match 42 {
         42 => 1,
-        51 => 1, //~ ERROR match arms have same body
+        51 => 1, // ERROR match arms have same body
         41 => 2,
-        52 => 2, //~ ERROR match arms have same body
+        52 => 2, // ERROR match arms have same body
         _ => 0,
     };
 
     let _ = match 42 {
         1 => 2,
-        2 => 2, //~ ERROR 2nd matched arms have same body
-        3 => 2, //~ ERROR 3rd matched arms have same body
+        2 => 2, // ERROR 2nd matched arms have same body
+        3 => 2, // ERROR 3rd matched arms have same body
         4 => 3,
         _ => 0,
     };

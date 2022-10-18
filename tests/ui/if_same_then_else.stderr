@@ -16,7 +16,7 @@ note: same as this
    |
 LL |       } else {
    |  ____________^
-LL | |         //~ ERROR same body as `if` block
+LL | |         // ERROR same body as `if` block
 LL | |         Foo { bar: 42 };
 LL | |         0..10;
 ...  |
@@ -39,7 +39,7 @@ note: same as this
    |
 LL |       } else {
    |  ____________^
-LL | |         //~ ERROR same body as `if` block
+LL | |         // ERROR same body as `if` block
 LL | |         0.0
 LL | |     };
    | |_____^
@@ -58,7 +58,7 @@ note: same as this
    |
 LL |       } else {
    |  ____________^
-LL | |         //~ ERROR same body as `if` block
+LL | |         // ERROR same body as `if` block
 LL | |         -0.0
 LL | |     };
    | |_____^
@@ -77,7 +77,7 @@ note: same as this
    |
 LL |       } else {
    |  ____________^
-LL | |         //~ ERROR same body as `if` block
+LL | |         // ERROR same body as `if` block
 LL | |         42
 LL | |     };
    | |_____^
@@ -100,7 +100,7 @@ note: same as this
    |
 LL |       } else {
    |  ____________^
-LL | |         //~ ERROR same body as `if` block
+LL | |         // ERROR same body as `if` block
 LL | |         let bar = if true { 42 } else { 43 };
 LL | |
 ...  |

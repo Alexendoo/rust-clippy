@@ -22,7 +22,7 @@ fn match_same_arms() {
             a
         },
         _ => {
-            //~ ERROR match arms have same body
+            // ERROR match arms have same body
             foo();
             let mut a = 42 + [23].len() as i32;
             if true {
@@ -35,13 +35,13 @@ fn match_same_arms() {
 
     let _ = match 42 {
         42 => foo(),
-        51 => foo(), //~ ERROR match arms have same body
+        51 => foo(), // ERROR match arms have same body
         _ => true,
     };
 
     let _ = match Some(42) {
         Some(_) => 24,
-        None => 24, //~ ERROR match arms have same body
+        None => 24, // ERROR match arms have same body
     };
 
     let _ = match Some(42) {
@@ -63,13 +63,13 @@ fn match_same_arms() {
 
     match (Some(42), Some(42)) {
         (Some(a), None) => bar(a),
-        (None, Some(a)) => bar(a), //~ ERROR match arms have same body
+        (None, Some(a)) => bar(a), // ERROR match arms have same body
         _ => (),
     }
 
     match (Some(42), Some(42)) {
         (Some(a), ..) => bar(a),
-        (.., Some(a)) => bar(a), //~ ERROR match arms have same body
+        (.., Some(a)) => bar(a), // ERROR match arms have same body
         _ => (),
     }
 

@@ -29,7 +29,7 @@ fn if_same_then_else() {
         0..=10;
         foo();
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         Foo { bar: 42 };
         0..10;
         ..;
@@ -67,14 +67,14 @@ fn if_same_then_else() {
     let _ = if true {
         0.0
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         0.0
     };
 
     let _ = if true {
         -0.0
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         -0.0
     };
 
@@ -90,7 +90,7 @@ fn if_same_then_else() {
     let _ = if true {
         42
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         42
     };
 
@@ -102,7 +102,7 @@ fn if_same_then_else() {
         }
         bar + 1;
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         let bar = if true { 42 } else { 43 };
 
         while foo() {

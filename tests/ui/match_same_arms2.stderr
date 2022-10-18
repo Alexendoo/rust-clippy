@@ -15,7 +15,7 @@ note: `_` wildcard arm here
   --> $DIR/match_same_arms2.rs:24:9
    |
 LL | /         _ => {
-LL | |             //~ ERROR match arms have same body
+LL | |             // ERROR match arms have same body
 LL | |             foo();
 LL | |             let mut a = 42 + [23].len() as i32;
 ...  |
@@ -27,7 +27,7 @@ LL | |         },
 error: this match arm has an identical body to another arm
   --> $DIR/match_same_arms2.rs:38:9
    |
-LL |         51 => foo(), //~ ERROR match arms have same body
+LL |         51 => foo(), // ERROR match arms have same body
    |         --^^^^^^^^^
    |         |
    |         help: try merging the arm patterns: `51 | 42`
@@ -42,7 +42,7 @@ LL |         42 => foo(),
 error: this match arm has an identical body to another arm
   --> $DIR/match_same_arms2.rs:44:9
    |
-LL |         None => 24, //~ ERROR match arms have same body
+LL |         None => 24, // ERROR match arms have same body
    |         ----^^^^^^
    |         |
    |         help: try merging the arm patterns: `None | Some(_)`
@@ -57,7 +57,7 @@ LL |         Some(_) => 24,
 error: this match arm has an identical body to another arm
   --> $DIR/match_same_arms2.rs:66:9
    |
-LL |         (None, Some(a)) => bar(a), //~ ERROR match arms have same body
+LL |         (None, Some(a)) => bar(a), // ERROR match arms have same body
    |         ---------------^^^^^^^^^^
    |         |
    |         help: try merging the arm patterns: `(None, Some(a)) | (Some(a), None)`
@@ -81,7 +81,7 @@ LL |         (Some(a), ..) => bar(a),
 note: other arm here
   --> $DIR/match_same_arms2.rs:72:9
    |
-LL |         (.., Some(a)) => bar(a), //~ ERROR match arms have same body
+LL |         (.., Some(a)) => bar(a), // ERROR match arms have same body
    |         ^^^^^^^^^^^^^^^^^^^^^^^
 
 error: this match arm has an identical body to another arm

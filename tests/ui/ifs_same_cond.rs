@@ -7,18 +7,18 @@ fn ifs_same_cond() {
 
     if b {
     } else if b {
-        //~ ERROR ifs same condition
+        // ERROR ifs same condition
     }
 
     if a == 1 {
     } else if a == 1 {
-        //~ ERROR ifs same condition
+        // ERROR ifs same condition
     }
 
     if 2 * a == 1 {
     } else if 2 * a == 2 {
     } else if 2 * a == 1 {
-        //~ ERROR ifs same condition
+        // ERROR ifs same condition
     } else if a == 1 {
     }
 

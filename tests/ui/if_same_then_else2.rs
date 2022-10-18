@@ -21,7 +21,7 @@ fn if_same_then_else2() -> Result<&'static str, ()> {
             }
         }
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         for _ in &[42] {
             let bar: &Option<_> = &Some::<u8>(42);
             if bar.is_some() {
@@ -35,14 +35,14 @@ fn if_same_then_else2() -> Result<&'static str, ()> {
     if true {
         if let Some(a) = Some(42) {}
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         if let Some(a) = Some(42) {}
     }
 
     if true {
         if let (1, .., 3) = (1, 2, 3) {}
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         if let (1, .., 3) = (1, 2, 3) {}
     }
 
@@ -92,14 +92,14 @@ fn if_same_then_else2() -> Result<&'static str, ()> {
     let _ = if true {
         f32::NAN
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         f32::NAN
     };
 
     if true {
         Ok("foo")?;
     } else {
-        //~ ERROR same body as `if` block
+        // ERROR same body as `if` block
         Ok("foo")?;
     }
 

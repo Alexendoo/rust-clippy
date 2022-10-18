@@ -45,7 +45,7 @@ static Y: u32 = 0;
 // refer to a static variable
 fn get_y() -> u32 {
     Y
-    //~^ ERROR E0013
+    // ERROR E0013
 }
 
 // Don't lint entrypoint functions
