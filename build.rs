@@ -1,6 +1,9 @@
 fn main() {
-    // Forward the profile to the main compilation
+    // Forward PROFILE, HOST and TARGET to the main compilation
     println!("cargo:rustc-env=PROFILE={}", std::env::var("PROFILE").unwrap());
+    println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
+    println!("cargo:rustc-env=TARGET={}", std::env::var("TARGET").unwrap());
+
     // Don't rebuild even if nothing changed
     println!("cargo:rerun-if-changed=build.rs");
     // forward git repo hashes we build at

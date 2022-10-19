@@ -1,6 +1,7 @@
 #![feature(test)] // compiletest_rs requires this attribute
 #![feature(once_cell)]
 #![feature(is_sorted)]
+#![feature(exit_status_error)]
 #![cfg_attr(feature = "deny-warnings", deny(warnings))]
 #![warn(rust_2018_idioms, unused_lifetimes)]
 
@@ -13,6 +14,7 @@ use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::LazyLock;
 use test_utils::IS_RUSTC_TEST_SUITE;
 
@@ -122,6 +124,85 @@ static EXTERN_FLAGS: LazyLock<String> = LazyLock::new(|| {
         .collect()
 });
 
+fn base_command(test_dir: &str, cargo: bool) -> Command {
+    let lib_path = option_env!("RUSTC_LIB_PATH").unwrap_or_default();
+
+    let current_exe_path = env::current_exe().unwrap();
+    let deps_path = current_exe_path.parent().unwrap();
+    let profile_path = deps_path.parent().unwrap();
+    let root = env::current_dir().unwrap();
+
+    let host_libs = option_env!("HOST_LIBS")
+        .map(|p| format!(" -L dependency={}", Path::new(p).join("deps").display()))
+        .unwrap_or_default();
+
+    let mut command =
+        Command::new(fs::canonicalize("../rust/build/aarch64-unknown-linux-gnu/stage0-tools-bin/compiletest").unwrap());
+
+    if !cargo {
+        command
+            .arg("--src-base")
+            .arg(root.join("tests").join(test_dir))
+            .args(filters());
+    }
+
+    command
+        .arg("--compile-lib-path")
+        .arg(lib_path)
+        .arg("--run-lib-path")
+        .arg(lib_path)
+        .arg("--rustc-path")
+        .arg(profile_path.join(if cfg!(windows) {
+            "clippy-driver.exe"
+        } else {
+            "clippy-driver"
+        }))
+        .arg("--target-rustcflags")
+        .arg(format!(
+            "--emit=metadata -Dwarnings -Zui-testing -L dependency={}{host_libs}{}",
+            deps_path.display(),
+            &*EXTERN_FLAGS,
+        ))
+        .arg("--ignore-exit-status")
+        .arg("--target")
+        .arg(env!("TARGET"))
+        .arg("--host")
+        .arg(env!("HOST"))
+        .arg("--root")
+        .arg(&root)
+        // .arg("--bless")
+        // .arg("--quiet")
+        // .arg("--verbose")
+        .arg("--build-base")
+        .arg(profile_path.join("test").join(test_dir))
+        .arg("--stage-id=stage-id")
+        .arg("--mode=ui")
+        .arg("--suite")
+        .arg(test_dir)
+        .arg("--force-rerun")
+        .arg("--no-expected-comments")
+        .arg("--channel=nightly")
+        .arg("--edition=2021")
+        // required flags we don't use
+        .arg("--python=")
+        .arg("--cc=")
+        .arg("--cxx=")
+        .arg("--cflags=")
+        .arg("--cxxflags=")
+        .arg("--llvm-components=")
+        .arg("--android-cross-path=");
+
+    command
+}
+
+fn filters() -> Vec<String> {
+    env::var("TESTNAME")
+        .iter()
+        .flat_map(|test_name| test_name.split(','))
+        .map(String::from)
+        .collect()
+}
+
 fn base_config(test_dir: &str) -> compiletest::Config {
     let mut config = compiletest::Config {
         edition: Some("2021".into()),
@@ -164,21 +245,25 @@ fn base_config(test_dir: &str) -> compiletest::Config {
     config
 }
 
+fn run(command: &mut Command) {
+    command.status().unwrap().exit_ok().unwrap();
+}
+
 fn run_ui() {
-    let mut config = base_config("ui");
-    config.rustfix_coverage = true;
-    // use tests/clippy.toml
-    let _g = VarGuard::set("CARGO_MANIFEST_DIR", fs::canonicalize("tests").unwrap());
-    let _threads = VarGuard::set(
-        "RUST_TEST_THREADS",
-        // if RUST_TEST_THREADS is set, adhere to it, otherwise override it
-        env::var("RUST_TEST_THREADS").unwrap_or_else(|_| {
-            std::thread::available_parallelism()
-                .map_or(1, std::num::NonZeroUsize::get)
-                .to_string()
-        }),
-    );
-    compiletest::run_tests(&config);
+    run(base_command("ui", false)
+        .env("CLIPPY_CONF_DIR", fs::canonicalize("tests").unwrap())
+        // TODO: check if still needed
+        .env(
+            "RUST_TEST_THREADS",
+            // if RUST_TEST_THREADS is set, adhere to it, otherwise override it
+            env::var("RUST_TEST_THREADS").unwrap_or_else(|_| {
+                std::thread::available_parallelism()
+                    .map_or(1, std::num::NonZeroUsize::get)
+                    .to_string()
+            }),
+        )
+        .arg("--rustfix-coverage"));
+
     check_rustfix_coverage();
 }
 
@@ -187,177 +272,91 @@ fn run_internal_tests() {
     if !RUN_INTERNAL_TESTS {
         return;
     }
-    let config = base_config("ui-internal");
-    compiletest::run_tests(&config);
+    run(&mut base_command("ui-internal", false));
 }
 
 fn run_ui_toml() {
-    fn run_tests(config: &compiletest::Config, mut tests: Vec<tester::TestDescAndFn>) -> Result<bool, io::Error> {
-        let mut result = true;
-        let opts = compiletest::test_opts(config);
-        for dir in fs::read_dir(&config.src_base)? {
-            let dir = dir?;
-            if !dir.file_type()?.is_dir() {
-                continue;
-            }
-            let dir_path = dir.path();
-            let _g = VarGuard::set("CARGO_MANIFEST_DIR", &dir_path);
-            for file in fs::read_dir(&dir_path)? {
-                let file = file?;
-                let file_path = file.path();
-                if file.file_type()?.is_dir() {
-                    continue;
-                }
-                if file_path.extension() != Some(OsStr::new("rs")) {
-                    continue;
-                }
-                let paths = compiletest::common::TestPaths {
-                    file: file_path,
-                    base: config.src_base.clone(),
-                    relative_dir: dir_path.file_name().unwrap().into(),
-                };
-                let test_name = compiletest::make_test_name(config, &paths);
-                let index = tests
-                    .iter()
-                    .position(|test| test.desc.name == test_name)
-                    .expect("The test should be in there");
-                result &= tester::run_tests_console(&opts, vec![tests.swap_remove(index)])?;
-            }
-        }
-        Ok(result)
-    }
-
-    let mut config = base_config("ui-toml");
-    config.src_base = config.src_base.canonicalize().unwrap();
-
-    let tests = compiletest::make_tests(&config);
-
-    let res = run_tests(&config, tests);
-    match res {
-        Ok(true) => {},
-        Ok(false) => panic!("Some tests failed"),
-        Err(e) => {
-            panic!("I/O failure during tests: {e:?}");
-        },
-    }
+    run(base_command("ui-toml", false).arg("--cargo-manifest-dir={{parent-dir}}"));
 }
 
-fn run_ui_cargo() {
-    fn run_tests(
-        config: &compiletest::Config,
-        filters: &[String],
-        mut tests: Vec<tester::TestDescAndFn>,
-    ) -> Result<bool, io::Error> {
-        let mut result = true;
-        let opts = compiletest::test_opts(config);
+fn run_ui_cargo() -> io::Result<()> {
+    if IS_RUSTC_TEST_SUITE {
+        return Ok(());
+    }
 
-        for dir in fs::read_dir(&config.src_base)? {
-            let dir = dir?;
-            if !dir.file_type()?.is_dir() {
+    let mut success = true;
+    let base_filters = filters();
+    let ui_cargo_dir = env::current_dir()?.join("tests").join("ui-cargo");
+
+    for dir in fs::read_dir(&ui_cargo_dir)? {
+        let dir = dir?;
+        if !dir.file_type()?.is_dir() {
+            continue;
+        }
+
+        // Use the filter if provided
+        let dir_path = dir.path();
+        for filter in &base_filters {
+            if !dir_path.ends_with(filter) {
+                continue;
+            }
+        }
+
+        for case in fs::read_dir(&dir_path)? {
+            let case = case?;
+            if !case.file_type()?.is_dir() {
                 continue;
             }
 
-            // Use the filter if provided
-            let dir_path = dir.path();
-            for filter in filters {
-                if !dir_path.ends_with(filter) {
-                    continue;
-                }
+            let src_path = case.path().join("src");
+
+            // When switching between branches, if the previous branch had a test
+            // that the current branch does not have, the directory is not removed
+            // because an ignored Cargo.lock file exists.
+            if !src_path.exists() {
+                continue;
             }
 
-            for case in fs::read_dir(&dir_path)? {
-                let case = case?;
-                if !case.file_type()?.is_dir() {
-                    continue;
-                }
+            let cargo_toml_path = case.path().join("Cargo.toml");
+            let cargo_content = fs::read(cargo_toml_path)?;
+            let cargo_parsed: toml::Value =
+                toml::from_str(std::str::from_utf8(&cargo_content).expect("`Cargo.toml` is not a valid utf-8 file!"))
+                    .expect("Can't parse `Cargo.toml`");
 
-                let src_path = case.path().join("src");
-
-                // When switching between branches, if the previous branch had a test
-                // that the current branch does not have, the directory is not removed
-                // because an ignored Cargo.lock file exists.
-                if !src_path.exists() {
-                    continue;
-                }
-
-                env::set_current_dir(&src_path)?;
-
-                let cargo_toml_path = case.path().join("Cargo.toml");
-                let cargo_content = fs::read(cargo_toml_path)?;
-                let cargo_parsed: toml::Value = toml::from_str(
-                    std::str::from_utf8(&cargo_content).expect("`Cargo.toml` is not a valid utf-8 file!"),
-                )
-                .expect("Can't parse `Cargo.toml`");
-
-                let _g = VarGuard::set("CARGO_MANIFEST_DIR", case.path());
-                let _h = VarGuard::set(
+            success &= base_command("ui-cargo", true)
+                .env("CARGO_MANIFEST_DIR", case.path())
+                .env(
                     "CARGO_PKG_RUST_VERSION",
                     cargo_parsed
                         .get("package")
                         .and_then(|p| p.get("rust-version"))
                         .and_then(toml::Value::as_str)
                         .unwrap_or(""),
-                );
-
-                for file in fs::read_dir(&src_path)? {
-                    let file = file?;
-                    if file.file_type()?.is_dir() {
-                        continue;
-                    }
-
-                    // Search for the main file to avoid running a test for each file in the project
-                    let file_path = file.path();
-                    match file_path.file_name().and_then(OsStr::to_str) {
-                        Some("main.rs") => {},
-                        _ => continue,
-                    }
-                    let _g = VarGuard::set("CLIPPY_CONF_DIR", case.path());
-                    let paths = compiletest::common::TestPaths {
-                        file: file_path,
-                        base: config.src_base.clone(),
-                        relative_dir: src_path.strip_prefix(&config.src_base).unwrap().into(),
-                    };
-                    let test_name = compiletest::make_test_name(config, &paths);
-                    let index = tests
-                        .iter()
-                        .position(|test| test.desc.name == test_name)
-                        .expect("The test should be in there");
-                    result &= tester::run_tests_console(&opts, vec![tests.swap_remove(index)])?;
-                }
-            }
+                )
+                .arg("--src-base")
+                .arg(case.path())
+                .arg("main.rs")
+                .current_dir(src_path)
+                .status()
+                .unwrap()
+                .success();
         }
-        Ok(result)
     }
 
-    if IS_RUSTC_TEST_SUITE {
-        return;
+    if !success {
+        panic!("some tests failed");
     }
 
-    let mut config = base_config("ui-cargo");
-    config.src_base = config.src_base.canonicalize().unwrap();
-
-    let tests = compiletest::make_tests(&config);
-
-    let current_dir = env::current_dir().unwrap();
-    let res = run_tests(&config, &config.filters, tests);
-    env::set_current_dir(current_dir).unwrap();
-
-    match res {
-        Ok(true) => {},
-        Ok(false) => panic!("Some tests failed"),
-        Err(e) => {
-            panic!("I/O failure during tests: {e:?}");
-        },
-    }
+    Ok(())
 }
 
 #[test]
 fn compile_test() {
     set_var("CLIPPY_DISABLE_DOCS_LINKS", "true");
     run_ui();
-    run_ui_toml();
-    run_ui_cargo();
-    run_internal_tests();
+    // run_ui_toml();
+    // run_ui_cargo().expect("failed to run ui-cargo tests");
+    // run_internal_tests();
 }
 
 const RUSTFIX_COVERAGE_KNOWN_EXCEPTIONS: &[&str] = &[
