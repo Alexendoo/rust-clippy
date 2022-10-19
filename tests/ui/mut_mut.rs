@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // aux-build:macro_rules.rs
 #![warn(clippy::mut_mut)]
 #![allow(unused)]

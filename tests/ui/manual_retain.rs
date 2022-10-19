@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // run-rustfix
 #![feature(custom_inner_attributes)]
 #![warn(clippy::manual_retain)]

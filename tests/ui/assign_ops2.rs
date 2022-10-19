@@ -1,3 +1,5 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
+
 #![allow(clippy::uninlined_format_args)]
 
 #[allow(unused_assignments)]

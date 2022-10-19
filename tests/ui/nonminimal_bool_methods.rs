@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // run-rustfix
 #![allow(unused, clippy::diverging_sub_expression)]
 #![warn(clippy::nonminimal_bool)]

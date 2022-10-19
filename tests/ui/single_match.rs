@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 #![warn(clippy::single_match)]
 #![allow(clippy::uninlined_format_args)]
 

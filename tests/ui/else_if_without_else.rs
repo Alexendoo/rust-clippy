@@ -1,3 +1,5 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
+
 #![warn(clippy::all)]
 #![warn(clippy::else_if_without_else)]
 

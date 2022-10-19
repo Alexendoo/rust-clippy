@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 #![feature(custom_inner_attributes)]
 #![clippy::msrv = "1.40"]
 #![clippy::msrv = "=1.35.0"]

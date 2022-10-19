@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 #![warn(clippy::all)]
 #![allow(unused, clippy::needless_pass_by_value, clippy::vec_box)]
 #![feature(associated_type_defaults)]
