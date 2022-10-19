@@ -1,5 +1,5 @@
 error: `mod.rs` files are required, found `bad.rs`
-  --> /remapped/module_style/fail_mod_remap/src/bad.rs:1:1
+  --> /remapped/src/bad.rs:1:1
    |
 LL | pub mod inner;
    | ^

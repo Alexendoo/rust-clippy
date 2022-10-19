@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // run-rustfix
 // aux-build:macro_rules.rs
 

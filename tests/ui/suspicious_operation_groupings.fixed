@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // run-rustfix
 #![warn(clippy::suspicious_operation_groupings)]
 #![allow(dead_code, unused_parens, clippy::eq_op)]

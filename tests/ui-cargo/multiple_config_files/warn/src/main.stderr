@@ -1,2 +1,2 @@
-Using config file `$SRC_DIR/.clippy.toml`
-Warning: `$SRC_DIR/clippy.toml` will be ignored.
+Using config file `DIR/clippy.toml`
+Warning: `DIR/clippy.toml` will be ignored.

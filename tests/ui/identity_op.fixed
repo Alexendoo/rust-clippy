@@ -1,3 +1,4 @@
+// compile-flags: -Z deduplicate-diagnostics=yes
 // run-rustfix
 #![warn(clippy::identity_op)]
 #![allow(unused)]
