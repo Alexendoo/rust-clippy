@@ -28,7 +28,7 @@ tempfile = { version = "3.2", optional = true }
 termize = "0.1"
 
 [dev-dependencies]
-compiletest_rs = { version = "0.9", features = ["tmp"] }
+compiletest = { path = "../rust/src/tools/compiletest" }
 tester = "0.9"
 regex = "1.5"
 toml = "0.5"
