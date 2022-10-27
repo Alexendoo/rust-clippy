@@ -1,3 +1,4 @@
+// failure-status: 101
 // rustc-env:RUST_BACKTRACE=0
 // normalize-stderr-test: "Clippy version: .*" -> "Clippy version: foo"
 // normalize-stderr-test: "internal_lints.rs:\d*:\d*" -> "internal_lints.rs"

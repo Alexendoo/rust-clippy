@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::single_match_else)]
 
 //! Test for https://github.com/rust-lang/rust-clippy/issues/1588

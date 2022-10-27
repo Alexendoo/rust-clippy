@@ -1,3 +1,4 @@
+// check-pass
 pub struct S<'a, 'e>(&'a str, &'e str);
 
 pub type T<'a, 'e> = std::collections::HashMap<S<'a, 'e>, ()>;

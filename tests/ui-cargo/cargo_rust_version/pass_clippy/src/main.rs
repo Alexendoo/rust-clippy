@@ -1,3 +1,4 @@
+// check-pass
 #![deny(clippy::use_self)]
 
 pub struct Foo;

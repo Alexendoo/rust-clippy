@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::useless_format)]
 #![allow(clippy::print_literal)]
 

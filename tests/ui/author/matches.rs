@@ -1,3 +1,4 @@
+// check-pass
 #![allow(clippy::let_and_return)]
 
 fn main() {

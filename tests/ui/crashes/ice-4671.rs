@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::use_self)]
 
 #[macro_use]

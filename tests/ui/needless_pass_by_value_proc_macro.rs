@@ -1,3 +1,4 @@
+// check-pass
 #![crate_type = "proc-macro"]
 #![warn(clippy::needless_pass_by_value)]
 

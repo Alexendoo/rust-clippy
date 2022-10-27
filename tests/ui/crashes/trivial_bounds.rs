@@ -1,3 +1,4 @@
+// check-pass
 #![feature(trivial_bounds)]
 #![allow(unused, trivial_bounds)]
 

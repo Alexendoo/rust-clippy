@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::repeat_once)]
 #![allow(clippy::let_unit_value)]
 

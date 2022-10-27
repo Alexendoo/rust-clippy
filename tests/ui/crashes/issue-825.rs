@@ -1,3 +1,4 @@
+// check-pass
 #![allow(warnings)]
 
 /// Test for https://github.com/rust-lang/rust-clippy/issues/825

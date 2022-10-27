@@ -1,3 +1,4 @@
+// check-pass
 fn main() {
     let x: [i32; {
         let u = 2;

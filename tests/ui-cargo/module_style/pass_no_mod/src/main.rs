@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::mod_module_files)]
 
 mod good;

@@ -1,3 +1,4 @@
+// check-pass
 #![allow(
     unused_variables,
     clippy::disallowed_names,

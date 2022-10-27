@@ -1,3 +1,4 @@
+// check-pass
 macro_rules! m {
     ($($x:tt),*) => { &[$(($x, stringify!(x)),)*] };
 }

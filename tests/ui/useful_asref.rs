@@ -1,3 +1,4 @@
+// check-pass
 #![deny(clippy::useless_asref)]
 
 trait Trait {

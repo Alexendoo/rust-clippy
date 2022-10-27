@@ -1,3 +1,4 @@
+// check-pass
 trait IsErr {
     fn is_err(&self, err: &str) -> bool;
 }

@@ -1,3 +1,4 @@
+// check-pass
 enum E {
     X(),
     Y,

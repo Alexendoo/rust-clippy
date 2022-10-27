@@ -1,3 +1,4 @@
+// check-pass
 #![allow(clippy::redundant_clone)]
 #![feature(custom_inner_attributes)]
 #![clippy::msrv = "1.0"]

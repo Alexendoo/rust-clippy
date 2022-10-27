@@ -1,3 +1,4 @@
+// check-pass
 fn repro() {
     trait Foo {
         type Bar;

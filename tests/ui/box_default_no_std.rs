@@ -1,3 +1,4 @@
+// check-pass
 #![feature(lang_items, start, libc)]
 #![warn(clippy::box_default)]
 #![no_std]

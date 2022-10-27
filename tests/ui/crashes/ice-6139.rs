@@ -1,3 +1,4 @@
+// check-pass
 trait T<'a> {}
 
 fn foo(_: Vec<Box<dyn T<'_>>>) {}

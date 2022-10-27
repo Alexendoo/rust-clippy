@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::all)]
 #![allow(clippy::disallowed_names, clippy::equatable_if_let)]
 #![allow(unused)]

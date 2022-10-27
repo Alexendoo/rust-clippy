@@ -1,3 +1,4 @@
+// check-pass
 #![allow(
     clippy::unnecessary_operation,
     clippy::single_match,

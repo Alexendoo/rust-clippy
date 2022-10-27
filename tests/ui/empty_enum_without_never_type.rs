@@ -1,3 +1,4 @@
+// check-pass
 #![allow(dead_code)]
 #![warn(clippy::empty_enum)]
 

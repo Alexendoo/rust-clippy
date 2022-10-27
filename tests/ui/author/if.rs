@@ -1,3 +1,4 @@
+// check-pass
 #[allow(clippy::all)]
 
 fn main() {

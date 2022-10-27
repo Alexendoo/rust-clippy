@@ -1,3 +1,4 @@
+// check-pass
 use std::fmt;
 use std::marker::PhantomData;
 

@@ -1,3 +1,4 @@
+// check-pass
 #![warn(clippy::all, clippy::pedantic)]
 
 #[derive(Debug, Copy, Clone)]

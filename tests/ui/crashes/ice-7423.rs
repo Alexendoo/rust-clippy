@@ -1,3 +1,4 @@
+// check-pass
 pub trait Trait {
     fn f();
 }
