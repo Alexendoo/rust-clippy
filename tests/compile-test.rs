@@ -7,8 +7,8 @@
 
 use compiletest::common::{Config, Hooks};
 use std::collections::HashMap;
-use std::env::{self, remove_var, set_var, var_os};
-use std::ffi::{OsStr, OsString};
+use std::env::{self, set_var};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
@@ -164,7 +164,6 @@ fn base_config(test_dir: &str) -> Config {
         build_base: profile_path.join("test").join(test_dir),
         stage_id: "stage-id".into(),
         mode: compiletest::common::Mode::Ui,
-        ignore_exit_status: true,
         no_expected_comments: true,
         suite: test_dir.into(),
         debugger: None,
@@ -419,29 +418,5 @@ fn ui_cargo_toml_metadata() {
             !publish || publish_exceptions.contains(&path.parent().unwrap().to_path_buf()),
             "{path:?} lacks `publish = false`"
         );
-    }
-}
-
-/// Restores an env var on drop
-#[must_use]
-struct VarGuard {
-    key: &'static str,
-    value: Option<OsString>,
-}
-
-impl VarGuard {
-    fn set(key: &'static str, val: impl AsRef<OsStr>) -> Self {
-        let value = var_os(key);
-        set_var(key, val);
-        Self { key, value }
-    }
-}
-
-impl Drop for VarGuard {
-    fn drop(&mut self) {
-        match self.value.as_deref() {
-            None => remove_var(self.key),
-            Some(value) => set_var(self.key, value),
-        }
     }
 }
