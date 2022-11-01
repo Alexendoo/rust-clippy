@@ -24,6 +24,7 @@ fn get_clap_config() -> ArgMatches {
                 .long("jobs")
                 .help("Number of threads to use, 0 automatic choice"),
             Arg::new("fix")
+                .action(ArgAction::SetTrue)
                 .long("fix")
                 .help("Runs cargo clippy --fix and checks if all suggestions apply"),
             Arg::new("filter")
@@ -32,15 +33,44 @@ fn get_clap_config() -> ArgMatches {
                 .value_name("clippy_lint_name")
                 .help("Apply a filter to only collect specified lints, this also overrides `allow` attributes"),
             Arg::new("markdown")
+                .action(ArgAction::SetTrue)
                 .long("markdown")
                 .help("Change the reports table to use markdown links"),
+            Arg::new("json")
+                .action(ArgAction::SetTrue)
+                .long("json")
+                .help("Output the diagnostics as JSON")
+                .conflicts_with("markdown"),
             Arg::new("recursive")
+                .action(ArgAction::SetTrue)
                 .long("recursive")
                 .help("Run clippy on the dependencies of crates specified in crates-toml")
                 .conflicts_with("threads")
                 .conflicts_with("fix"),
         ])
+        .subcommand(
+            Command::new("diff")
+                .about("Prints the difference between two `lintcheck --json` results")
+                .args([Arg::new("old").required(true), Arg::new("new").required(true)]),
+        )
         .get_matches()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum OutputFormat {
+    Text,
+    Markdown,
+    Json,
+}
+
+impl OutputFormat {
+    fn file_extension(self) -> &'static str {
+        match self {
+            OutputFormat::Text => "txt",
+            OutputFormat::Markdown => "md",
+            OutputFormat::Json => "json",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -57,10 +87,12 @@ pub(crate) struct LintcheckConfig {
     pub fix: bool,
     /// A list of lints that this lintcheck run should focus on
     pub lint_filter: Vec<String>,
-    /// Indicate if the output should support markdown syntax
-    pub markdown: bool,
+    /// The output format of the log file
+    pub format: OutputFormat,
     /// Run clippy on the dependencies of crates
     pub recursive: bool,
+    /// Diff the two `lintcheck --json` results
+    pub diff: Option<(PathBuf, PathBuf)>,
 }
 
 impl LintcheckConfig {
@@ -77,7 +109,13 @@ impl LintcheckConfig {
                 .into()
         });
 
-        let markdown = clap_config.contains_id("markdown");
+        let format = if clap_config.get_flag("markdown") {
+            OutputFormat::Markdown
+        } else if clap_config.get_flag("json") {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Text
+        };
         let sources_toml_path = PathBuf::from(sources_toml);
 
         // for the path where we save the lint results, get the filename without extension (so for
@@ -86,7 +124,7 @@ impl LintcheckConfig {
         let lintcheck_results_path = PathBuf::from(format!(
             "lintcheck-logs/{}_logs.{}",
             filename.display(),
-            if markdown { "md" } else { "txt" }
+            format.file_extension(),
         ));
 
         // look at the --threads arg, if 0 is passed, ask rayon rayon how many threads it would spawn and
@@ -117,15 +155,22 @@ impl LintcheckConfig {
             })
             .unwrap_or_default();
 
+        let diff = clap_config.subcommand_matches("diff").map(|args| {
+            let path = |arg| PathBuf::from(args.get_one::<String>(arg).unwrap());
+
+            (path("old"), path("new"))
+        });
+
         LintcheckConfig {
             max_jobs,
             sources_toml_path,
             lintcheck_results_path,
             only: clap_config.get_one::<String>("only").map(String::from),
-            fix: clap_config.contains_id("fix"),
+            fix: clap_config.get_flag("fix"),
             lint_filter,
-            markdown,
-            recursive: clap_config.contains_id("recursive"),
+            format,
+            recursive: clap_config.get_flag("recursive"),
+            diff,
         }
     }
 }
