@@ -70,7 +70,7 @@ extern crate tokio;
 /// dependencies must be added to Cargo.toml at the project root. Test
 /// dependencies that are not *directly* used by this test module require an
 /// `extern crate` declaration.
-static EXTERN_FLAGS: LazyLock<String> = LazyLock::new(|| {
+static EXTERN_FLAGS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let current_exe_depinfo = {
         let mut path = env::current_exe().unwrap();
         path.set_extension("d");
@@ -116,7 +116,7 @@ static EXTERN_FLAGS: LazyLock<String> = LazyLock::new(|| {
     );
     crates
         .into_iter()
-        .map(|(name, path)| format!(" --extern {name}={path}"))
+        .flat_map(|(name, path)| ["--extern".into(), format!("{name}={path}")])
         .collect()
 });
 
@@ -128,10 +128,6 @@ fn base_config(test_dir: &str) -> Config {
     let profile_path = deps_path.parent().unwrap();
     let root = env::current_dir().unwrap();
 
-    let host_libs = option_env!("HOST_LIBS")
-        .map(|p| format!(" -L dependency={}", Path::new(p).join("deps").display()))
-        .unwrap_or_default();
-
     let filters = env::var("TESTNAME")
         .iter()
         .flat_map(|test_name| test_name.split(','))
@@ -139,6 +135,24 @@ fn base_config(test_dir: &str) -> Config {
         .collect();
 
     let na = || String::from("(N/A)");
+
+    // TODO: check if any of this target flag stuff is still needed
+    let mut target_rustcflags = vec![
+        "--emit=metadata".into(),
+        "-Dwarnings".into(),
+        "-Zui-testing".into(),
+        format!("-Ldependency={}", deps_path.display()),
+    ];
+
+    target_rustcflags.extend(EXTERN_FLAGS.iter().cloned());
+
+    // TODO: Where does this come from?
+    if let Some(host_libs) = option_env!("HOST_LIBS") {
+        target_rustcflags.extend([
+            "-L".into(),
+            format!("dependency={}", Path::new(host_libs).join("deps").display()),
+        ]);
+    }
 
     Config {
         bless: false,
@@ -175,13 +189,8 @@ fn base_config(test_dir: &str) -> Config {
         run: None,
         logfile: None,
         runtool: None,
-        host_rustcflags: None,
-        // TODO: check if -Zui-testing etc is needed
-        target_rustcflags: Some(format!(
-            "--emit=metadata -Dwarnings -Zui-testing -L dependency={}{host_libs}{}",
-            deps_path.display(),
-            &*EXTERN_FLAGS,
-        )),
+        host_rustcflags: Vec::new(),
+        target_rustcflags,
         optimize_tests: false,
         target: env!("TARGET").into(),
         host: env!("HOST").into(),
@@ -232,7 +241,7 @@ fn run_ui() {
 fn run_ui_toml() {
     compiletest::run_tests(Config {
         hooks: Hooks {
-            modify_command: Some(Arc::new(|path, command| {
+            modify_compiler_command: Some(Arc::new(|path, command| {
                 command.env("CLIPPY_CONF_DIR", path.parent().unwrap());
             })),
             ..Hooks::default()
@@ -251,7 +260,7 @@ fn run_ui_cargo() {
             exclude_file: Some(Arc::new(|path| {
                 path.file_name().map_or(false, |filename| filename != "main.rs")
             })),
-            modify_command: Some(Arc::new(|path, command| {
+            modify_compiler_command: Some(Arc::new(|path, command| {
                 // e.g. `[cargo_toml_dir]/src/main.rs` -> `[cargo_toml_dir]`
                 let cargo_toml_dir = path.parent().unwrap().parent().unwrap();
 
