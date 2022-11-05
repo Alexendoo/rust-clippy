@@ -173,7 +173,7 @@ fn base_config(test_dir: &str) -> Config {
         valgrind_path: None,
         force_valgrind: false,
         run_clang_based_tests_with: None,
-        root: root.clone(),
+        source_root: root.clone(),
         src_base: root.join("tests").join(test_dir),
         build_base: profile_path.join("test").join(test_dir),
         stage_id: "stage-id".into(),
