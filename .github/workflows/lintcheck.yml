@@ -59,7 +59,7 @@ jobs:
 
     - name: Create cache key
       id: key
-      run: echo "key=lintcheck-pr-${{ github.ref }}" >> "$GITHUB_OUTPUT"
+      run: echo "key=lintcheck-pr-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Cache results
       id: cache
@@ -100,4 +100,4 @@ jobs:
         fail-on-cache-miss: true
 
     - name: Diff results
-      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/pr.json >> $GITHUB_STEP_SUMMARY
+      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/pr.json | tee $GITHUB_STEP_SUMMARY
