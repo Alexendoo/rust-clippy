@@ -18,7 +18,7 @@ jobs:
     - name: Checkout merge base
       uses: actions/checkout@v3
       with:
-        # ref: ${{ github.event.pull_request.base.sha }}
+        ref: ${{ github.event.pull_request.base.sha }}
         fetch-depth: 0
 
     - run: echo '${{ toJSON(github) }}'
