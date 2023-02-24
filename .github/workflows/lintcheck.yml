@@ -15,20 +15,18 @@ jobs:
       key: ${{ steps.key.outputs.key }}
 
     steps:
-    - name: Checkout
+    - name: Checkout merge base
       uses: actions/checkout@v3
       with:
+        ref: ${{ github.base_ref }}
         fetch-depth: 0
 
-    - run: echo ${{ toJSON(github) }}
-
-    - name: Checkout the merge base
-      run: git checkout ${{ github.base_ref }}
+    - run: echo '${{ toJSON(github) }}'
 
     - name: Checkout current lintcheck
       run: |
         rm -rf lintcheck
-        git checkout ${{ github.ref }} -- lintcheck
+        git checkout ${{ github.sha }} -- lintcheck
 
     - name: Create cache key
       id: key
