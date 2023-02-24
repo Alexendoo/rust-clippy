@@ -23,6 +23,7 @@ jobs:
 
     - run: echo '${{ toJSON(github) }}'
     - run: git log -1 ${{ github.event.pull_request.base.sha }} || true
+    - run: git log -1 ${{ github.sha }} || true
     - run: git log -1
 
     - name: Checkout current lintcheck
