@@ -24,6 +24,7 @@ fn get_clap_config() -> ArgMatches {
                 .long("jobs")
                 .help("Number of threads to use, 0 automatic choice"),
             Arg::new("fix")
+                .action(ArgAction::SetTrue)
                 .long("fix")
                 .help("Runs cargo clippy --fix and checks if all suggestions apply"),
             Arg::new("filter")
@@ -32,13 +33,16 @@ fn get_clap_config() -> ArgMatches {
                 .value_name("clippy_lint_name")
                 .help("Apply a filter to only collect specified lints, this also overrides `allow` attributes"),
             Arg::new("markdown")
+                .action(ArgAction::SetTrue)
                 .long("markdown")
                 .help("Change the reports table to use markdown links"),
             Arg::new("json")
+                .action(ArgAction::SetTrue)
                 .long("json")
                 .help("Output the diagnostics as JSON")
                 .conflicts_with("markdown"),
             Arg::new("recursive")
+                .action(ArgAction::SetTrue)
                 .long("recursive")
                 .help("Run clippy on the dependencies of crates specified in crates-toml")
                 .conflicts_with("threads")
@@ -105,9 +109,9 @@ impl LintcheckConfig {
                 .into()
         });
 
-        let format = if clap_config.contains_id("markdown") {
+        let format = if clap_config.get_flag("markdown") {
             OutputFormat::Markdown
-        } else if clap_config.contains_id("json") {
+        } else if clap_config.get_flag("json") {
             OutputFormat::Json
         } else {
             OutputFormat::Text
@@ -162,10 +166,10 @@ impl LintcheckConfig {
             sources_toml_path,
             lintcheck_results_path,
             only: clap_config.get_one::<String>("only").map(String::from),
-            fix: clap_config.contains_id("fix"),
+            fix: clap_config.get_flag("fix"),
             lint_filter,
             format,
-            recursive: clap_config.contains_id("recursive"),
+            recursive: clap_config.get_flag("recursive"),
             diff,
         }
     }

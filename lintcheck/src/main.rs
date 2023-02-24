@@ -19,7 +19,7 @@ use crate::recursive::LintcheckServer;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::env::consts::EXE_SUFFIX;
-use std::fmt::{self, Write as _};
+use std::fmt::Write as _;
 use std::fs;
 use std::hash::Hash;
 use std::io::{self, ErrorKind};
