@@ -82,6 +82,9 @@ jobs:
     needs: [base, pr]
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
     - name: Restore base JSON
       uses: actions/cache/restore@v3
       with:
