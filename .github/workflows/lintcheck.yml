@@ -15,16 +15,13 @@ jobs:
       key: ${{ steps.key.outputs.key }}
 
     steps:
-    - name: Checkout merge base
+    - name: Checkout
       uses: actions/checkout@v3
       with:
-        ref: ${{ github.event.pull_request.base.sha }}
         fetch-depth: 0
 
-    - run: echo '${{ toJSON(github) }}'
-    - run: git log -1 ${{ github.event.pull_request.base.sha }} || true
-    - run: git log -1 ${{ github.sha }} || true
-    - run: git log -1
+    - name: Checkout merge base
+      run: git checkout ${{ github.event.pull_request.base.sha }}
 
     - name: Checkout current lintcheck
       run: |
