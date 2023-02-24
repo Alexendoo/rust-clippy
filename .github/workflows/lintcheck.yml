@@ -15,6 +15,10 @@ jobs:
       key: ${{ steps.key.outputs.key }}
 
     steps:
+    - uses: rust-lang/simpleinfra/github-actions/cancel-outdated-builds@master
+      with:
+        github_token: "${{ secrets.github_token }}"
+
     - name: Checkout
       uses: actions/checkout@v3
       with:
@@ -47,25 +51,29 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: mv lintcheck-logs/lintcheck_crates_logs.json lintcheck-logs/base.json
 
-  pr:
+  head:
     runs-on: ubuntu-latest
 
     outputs:
       key: ${{ steps.key.outputs.key }}
 
     steps:
+    - uses: rust-lang/simpleinfra/github-actions/cancel-outdated-builds@master
+      with:
+        github_token: "${{ secrets.github_token }}"
+
     - name: Checkout
       uses: actions/checkout@v3
 
     - name: Create cache key
       id: key
-      run: echo "key=lintcheck-pr-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      run: echo "key=lintcheck-head-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Cache results
       id: cache
       uses: actions/cache@v3
       with:
-        path: lintcheck-logs/pr.json
+        path: lintcheck-logs/head.json
         key: ${{ steps.key.outputs.key }}
 
     - name: Run lintcheck
@@ -74,12 +82,12 @@ jobs:
 
     - name: Rename JSON file
       if: steps.cache.outputs.cache-hit != 'true'
-      run: mv lintcheck-logs/lintcheck_crates_logs.json lintcheck-logs/pr.json
+      run: mv lintcheck-logs/lintcheck_crates_logs.json lintcheck-logs/head.json
 
   diff:
     runs-on: ubuntu-latest
 
-    needs: [base, pr]
+    needs: [base, head]
 
     steps:
     - name: Checkout
@@ -92,12 +100,38 @@ jobs:
         path: lintcheck-logs/base.json
         fail-on-cache-miss: true
 
-    - name: Restore PR JSON
+    - name: Restore head JSON
       uses: actions/cache/restore@v3
       with:
-        key: ${{ needs.pr.outputs.key }}
-        path: lintcheck-logs/pr.json
+        key: ${{ needs.head.outputs.key }}
+        path: lintcheck-logs/head.json
         fail-on-cache-miss: true
 
     - name: Diff results
-      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/pr.json | tee $GITHUB_STEP_SUMMARY
+      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/head.json >> $GITHUB_STEP_SUMMARY
+
+  # These jobs doesn't actually test anything, but they're only used to tell
+  # bors the build completed, as there is no practical way to detect when a
+  # workflow is successful listening to webhooks only.
+  #
+  # ALL THE PREVIOUS JOBS NEED TO BE ADDED TO THE `needs` SECTION OF THIS JOB!
+
+  end-success:
+    name: bors lintcheck test finished
+    if: github.event.pusher.name == 'bors' && success()
+    runs-on: ubuntu-latest
+    needs: [base, head, diff]
+
+    steps:
+      - name: Mark the job as successful
+        run: exit 0
+
+  end-failure:
+    name: bors lintcheck test finished
+    if: github.event.pusher.name == 'bors' && (failure() || cancelled())
+    runs-on: ubuntu-latest
+    needs: [base, head, diff]
+
+    steps:
+      - name: Mark the job as a failure
+        run: exit 1
