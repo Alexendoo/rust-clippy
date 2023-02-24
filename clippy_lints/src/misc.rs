@@ -335,8 +335,8 @@ impl LintPass {
             if !in_constant(cx, e.hir_id);
             then {
                 let (msg, sugg_fn) = match mut_ty.mutbl {
-                    Mutability::Mut => ("`0 as *mut _` detected", "ptr::null_mut"),
-                    Mutability::Not => ("`0 as *const _` detected", "ptr::null"),
+                    Mutability::Mut => ("found `0 as *mut _`", "ptr::null_mut"),
+                    Mutability::Not => ("found `0 as *const _`", "ptr::null"),
                 };
 
                 let (sugg, appl) = if let TyKind::Infer = mut_ty.ty.kind {
