@@ -18,14 +18,12 @@ jobs:
     - name: Checkout merge base
       uses: actions/checkout@v3
       with:
-        ref: ${{ github.event.pull_request.base.sha }}
+        # ref: ${{ github.event.pull_request.base.sha }}
         fetch-depth: 0
 
     - run: echo '${{ toJSON(github) }}'
-    - run: git log -1 ${{ github.base_ref }} || true
-    - run: git log -1 ${{ github.head_ref }} || true
     - run: git log -1 ${{ github.event.pull_request.base.sha }} || true
-    - run: git log -1 ${{ github.sha }} || true
+    - run: git log -1
 
     - name: Checkout current lintcheck
       run: |
