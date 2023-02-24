@@ -170,15 +170,7 @@ impl WarningType {
                 suggested_format,
                 Applicability::MaybeIncorrect,
             ),
-            Self::UnreadableLiteral => span_lint_and_sugg(
-                cx,
-                UNREADABLE_LITERAL,
-                span,
-                "long literal lacking separators",
-                "consider",
-                suggested_format,
-                Applicability::MachineApplicable,
-            ),
+            Self::UnreadableLiteral => {},
             Self::LargeDigitGroups => span_lint_and_sugg(
                 cx,
                 LARGE_DIGIT_GROUPS,
