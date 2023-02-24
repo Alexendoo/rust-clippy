@@ -65,7 +65,7 @@ jobs:
       id: cache
       uses: actions/cache@v3
       with:
-        path: lintcheck-logs/base.json
+        path: lintcheck-logs/pr.json
         key: ${{ steps.key.outputs.key }}
 
     - name: Run lintcheck
@@ -86,13 +86,15 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         key: ${{ needs.base.outputs.key }}
+        path: lintcheck-logs/base.json
         fail-on-cache-miss: true
 
     - name: Restore PR JSON
       uses: actions/cache/restore@v3
       with:
         key: ${{ needs.pr.outputs.key }}
+        path: lintcheck-logs/pr.json
         fail-on-cache-miss: true
 
     - name: Diff results
-      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/pr.json
+      run: cargo lintcheck diff lintcheck-logs/base.json lintcheck-logs/pr.json >> $GITHUB_STEP_SUMMARY
