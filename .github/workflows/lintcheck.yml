@@ -20,6 +20,8 @@ jobs:
       with:
         fetch-depth: 0
 
+    - run: echo ${{ github }}
+
     - name: Checkout the merge base
       run: git checkout ${{ github.base_ref }}
 
