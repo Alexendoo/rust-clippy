@@ -18,7 +18,7 @@ jobs:
     - name: Checkout merge base
       uses: actions/checkout@v3
       with:
-        ref: ${{ github.base_ref }}
+        ref: ${{ github.event.pull_request.base.sha }}
         fetch-depth: 0
 
     - run: echo '${{ toJSON(github) }}'
@@ -26,11 +26,11 @@ jobs:
     - name: Checkout current lintcheck
       run: |
         rm -rf lintcheck
-        git checkout ${{ github.sha }} -- lintcheck
+        git checkout ${{ github.merge_commit_sha }} -- lintcheck
 
     - name: Create cache key
       id: key
-      run: echo "key=lintcheck-base-${{ hashfiles('lintcheck/**') }}-${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+      run: echo "key=lintcheck-base-${{ hashfiles('lintcheck/**') }}-${{ github.merge_commit_sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Cache results
       id: cache
