@@ -22,10 +22,10 @@ jobs:
         fetch-depth: 0
 
     - run: echo '${{ toJSON(github) }}'
-    - run: git log -1 ${{ github.sha }}
-    - run: git log -1 ${{ github.event.pull_request.base.sha }}
     - run: git log -1 ${{ github.base_ref }}
     - run: git log -1 ${{ github.head_ref }}
+    - run: git log -1 ${{ github.event.pull_request.base.sha }}
+    - run: git log -1 ${{ github.sha }}
 
     - name: Checkout current lintcheck
       run: |
