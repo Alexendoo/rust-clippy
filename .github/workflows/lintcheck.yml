@@ -26,11 +26,11 @@ jobs:
     - name: Checkout current lintcheck
       run: |
         rm -rf lintcheck
-        git checkout ${{ github.merge_commit_sha }} -- lintcheck
+        git checkout ${{ github.sha }} -- lintcheck
 
     - name: Create cache key
       id: key
-      run: echo "key=lintcheck-base-${{ hashfiles('lintcheck/**') }}-${{ github.merge_commit_sha }}" >> "$GITHUB_OUTPUT"
+      run: echo "key=lintcheck-base-${{ hashfiles('lintcheck/**') }}-${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Cache results
       id: cache
