@@ -10,6 +10,7 @@ use rustc_span::Span;
 
 use super::MATCH_SINGLE_BINDING;
 
+#[derive(Debug)]
 enum AssignmentExpr {
     Assign { span: Span, match_span: Span },
     Local { span: Span, pat_span: Span },
@@ -30,12 +31,18 @@ pub(crate) fn check<'a>(cx: &LateContext<'a>, ex: &Expr<'a>, arms: &[Arm<'_>], e
         snippet_block(cx, match_body.span, "..", Some(expr.span)).to_string()
     };
 
-    // Do we need to add ';' to suggestion ?
-    if let ExprKind::Block(block, _) = match_body.kind {
-        // macro + expr_ty(body) == ()
-        if block.span.from_expansion() && cx.typeck_results().expr_ty(match_body).is_unit() {
-            snippet_body.push(';');
-        }
+    match match_body.kind {
+        // Do we need to add ';' to suggestion ?
+        ExprKind::Block(block, _) => {
+            // macro + expr_ty(body) == ()
+            if block.span.from_expansion() && cx.typeck_results().expr_ty(match_body).is_unit() {
+                snippet_body.push(';');
+            }
+        },
+        ExprKind::Tup(&[]) => {
+            snippet_body.clear();
+        },
+        _ => (),
     }
 
     let mut applicability = Applicability::MaybeIncorrect;
