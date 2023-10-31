@@ -17,11 +17,10 @@ mod useless_transmute;
 mod utils;
 mod wrong_transmute;
 
-use clippy_config::msrvs::Msrv;
 use clippy_utils::in_constant;
 use rustc_hir::{Expr, ExprKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::symbol::sym;
 
 declare_clippy_lint! {
@@ -463,10 +462,7 @@ declare_clippy_lint! {
     "transmute results in a null function pointer, which is undefined behavior"
 }
 
-pub struct Transmute {
-    msrv: Msrv,
-}
-impl_lint_pass!(Transmute => [
+declare_lint_pass!(Transmute => [
     CROSSPOINTER_TRANSMUTE,
     TRANSMUTE_PTR_TO_REF,
     TRANSMUTE_PTR_TO_PTR,
@@ -485,12 +481,7 @@ impl_lint_pass!(Transmute => [
     TRANSMUTING_NULL,
     TRANSMUTE_NULL_TO_FN,
 ]);
-impl Transmute {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
+
 impl<'tcx> LateLintPass<'tcx> for Transmute {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, e: &'tcx Expr<'_>) {
         if let ExprKind::Call(path_expr, [arg]) = e.kind
@@ -520,7 +511,7 @@ impl<'tcx> LateLintPass<'tcx> for Transmute {
                 | crosspointer_transmute::check(cx, e, from_ty, to_ty)
                 | transmuting_null::check(cx, e, arg, to_ty)
                 | transmute_null_to_fn::check(cx, e, arg, to_ty)
-                | transmute_ptr_to_ref::check(cx, e, from_ty, to_ty, arg, path, &self.msrv)
+                | transmute_ptr_to_ref::check(cx, e, from_ty, to_ty, arg, path)
                 | transmute_int_to_char::check(cx, e, from_ty, to_ty, arg, const_context)
                 | transmute_ref_to_ref::check(cx, e, from_ty, to_ty, arg, const_context)
                 | transmute_ptr_to_ptr::check(cx, e, from_ty, to_ty, arg)
@@ -537,6 +528,4 @@ impl<'tcx> LateLintPass<'tcx> for Transmute {
             }
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }

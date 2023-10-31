@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::{is_copy, is_type_diagnostic_item};
@@ -14,7 +14,7 @@ use rustc_span::{sym, Span};
 
 use super::MAP_CLONE;
 
-pub(super) fn check(cx: &LateContext<'_>, e: &hir::Expr<'_>, recv: &hir::Expr<'_>, arg: &hir::Expr<'_>, msrv: &Msrv) {
+pub(super) fn check(cx: &LateContext<'_>, e: &hir::Expr<'_>, recv: &hir::Expr<'_>, arg: &hir::Expr<'_>) {
     if let Some(method_id) = cx.typeck_results().type_dependent_def_id(e.hir_id)
         && (cx.tcx.impl_of_method(method_id).map_or(false, |id| {
             is_type_diagnostic_item(cx, cx.tcx.type_of(id).instantiate_identity(), sym::Option)
@@ -27,7 +27,7 @@ pub(super) fn check(cx: &LateContext<'_>, e: &hir::Expr<'_>, recv: &hir::Expr<'_
             hir::PatKind::Ref(inner, hir::Mutability::Not) => {
                 if let hir::PatKind::Binding(hir::BindingAnnotation::NONE, .., name, None) = inner.kind {
                     if ident_eq(name, closure_expr) {
-                        lint_explicit_closure(cx, e.span, recv.span, true, msrv);
+                        lint_explicit_closure(cx, e.span, recv.span, true);
                     }
                 }
             },
@@ -36,7 +36,7 @@ pub(super) fn check(cx: &LateContext<'_>, e: &hir::Expr<'_>, recv: &hir::Expr<'_
                     hir::ExprKind::Unary(hir::UnOp::Deref, inner) => {
                         if ident_eq(name, inner) {
                             if let ty::Ref(.., Mutability::Not) = cx.typeck_results().expr_ty(inner).kind() {
-                                lint_explicit_closure(cx, e.span, recv.span, true, msrv);
+                                lint_explicit_closure(cx, e.span, recv.span, true);
                             }
                         }
                     },
@@ -53,7 +53,7 @@ pub(super) fn check(cx: &LateContext<'_>, e: &hir::Expr<'_>, recv: &hir::Expr<'_
                             if let ty::Ref(_, ty, mutability) = obj_ty.kind() {
                                 if matches!(mutability, Mutability::Not) {
                                     let copy = is_copy(cx, *ty);
-                                    lint_explicit_closure(cx, e.span, recv.span, copy, msrv);
+                                    lint_explicit_closure(cx, e.span, recv.span, copy);
                                 }
                             } else {
                                 lint_needless_cloning(cx, e.span, recv.span);
@@ -88,10 +88,10 @@ fn lint_needless_cloning(cx: &LateContext<'_>, root: Span, receiver: Span) {
     );
 }
 
-fn lint_explicit_closure(cx: &LateContext<'_>, replace: Span, root: Span, is_copy: bool, msrv: &Msrv) {
+fn lint_explicit_closure(cx: &LateContext<'_>, replace: Span, root: Span, is_copy: bool) {
     let mut applicability = Applicability::MachineApplicable;
 
-    let (message, sugg_method) = if is_copy && msrv.meets(msrvs::ITERATOR_COPIED) {
+    let (message, sugg_method) = if is_copy && meets_msrv(cx, msrvs::ITERATOR_COPIED) {
         ("you are using an explicit closure for copying elements", "copied")
     } else {
         ("you are using an explicit closure for cloning elements", "cloned")

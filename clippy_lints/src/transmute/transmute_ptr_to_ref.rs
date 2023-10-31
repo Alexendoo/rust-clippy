@@ -1,5 +1,5 @@
 use super::TRANSMUTE_PTR_TO_REF;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::sugg;
@@ -17,7 +17,6 @@ pub(super) fn check<'tcx>(
     to_ty: Ty<'tcx>,
     arg: &'tcx Expr<'_>,
     path: &'tcx Path<'_>,
-    msrv: &Msrv,
 ) -> bool {
     match (&from_ty.kind(), &to_ty.kind()) {
         (ty::RawPtr(from_ptr_ty), ty::Ref(_, to_ref_ty, mutbl)) => {
@@ -37,7 +36,7 @@ pub(super) fn check<'tcx>(
 
                     let sugg = if let Some(ty) = get_explicit_type(path) {
                         let ty_snip = snippet_with_applicability(cx, ty.span, "..", &mut app);
-                        if msrv.meets(msrvs::POINTER_CAST) {
+                        if meets_msrv(cx, msrvs::POINTER_CAST) {
                             format!("{deref}{}.cast::<{ty_snip}>()", arg.maybe_par())
                         } else if from_ptr_ty.has_erased_regions() {
                             sugg::make_unop(deref, arg.as_ty(format!("{cast} () as {cast} {ty_snip}"))).to_string()
@@ -46,7 +45,7 @@ pub(super) fn check<'tcx>(
                         }
                     } else if from_ptr_ty.ty == *to_ref_ty {
                         if from_ptr_ty.has_erased_regions() {
-                            if msrv.meets(msrvs::POINTER_CAST) {
+                            if meets_msrv(cx, msrvs::POINTER_CAST) {
                                 format!("{deref}{}.cast::<{to_ref_ty}>()", arg.maybe_par())
                             } else {
                                 sugg::make_unop(deref, arg.as_ty(format!("{cast} () as {cast} {to_ref_ty}")))

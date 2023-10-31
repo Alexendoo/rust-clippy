@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::sugg::Sugg;
 use rustc_errors::Applicability;
@@ -14,13 +14,11 @@ pub(super) fn check<'tcx>(
     cast_expr: &Expr<'_>,
     cast_from: Ty<'tcx>,
     cast_to: Ty<'tcx>,
-    msrv: &Msrv,
 ) {
-    if msrv.meets(msrvs::POINTER_CAST_CONSTNESS)
-        && let ty::RawPtr(TypeAndMut {
-            mutbl: from_mutbl,
-            ty: from_ty,
-        }) = cast_from.kind()
+    if let ty::RawPtr(TypeAndMut {
+        mutbl: from_mutbl,
+        ty: from_ty,
+    }) = cast_from.kind()
         && let ty::RawPtr(TypeAndMut {
             mutbl: to_mutbl,
             ty: to_ty,
@@ -30,6 +28,7 @@ pub(super) fn check<'tcx>(
             (Mutability::Not, Mutability::Mut) | (Mutability::Mut, Mutability::Not)
         )
         && from_ty == to_ty
+        && meets_msrv(cx, msrvs::POINTER_CAST_CONSTNESS)
     {
         let sugg = Sugg::hir(cx, cast_expr, "_");
         let constness = match *to_mutbl {

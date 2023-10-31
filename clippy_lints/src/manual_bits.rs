@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::get_parent_expr;
 use clippy_utils::source::snippet_with_context;
@@ -8,7 +8,7 @@ use rustc_hir::{BinOpKind, Expr, ExprKind, GenericArg, QPath};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
 use rustc_middle::ty::{self, Ty};
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::sym;
 
 declare_clippy_lint! {
@@ -33,26 +33,10 @@ declare_clippy_lint! {
     "manual implementation of `size_of::<T>() * 8` can be simplified with `T::BITS`"
 }
 
-#[derive(Clone)]
-pub struct ManualBits {
-    msrv: Msrv,
-}
-
-impl ManualBits {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(ManualBits => [MANUAL_BITS]);
+declare_lint_pass!(ManualBits => [MANUAL_BITS]);
 
 impl<'tcx> LateLintPass<'tcx> for ManualBits {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if !self.msrv.meets(msrvs::MANUAL_BITS) {
-            return;
-        }
-
         if let ExprKind::Binary(bin_op, left_expr, right_expr) = expr.kind
             && let BinOpKind::Mul = &bin_op.node
             && !in_external_macro(cx.sess(), expr.span)
@@ -63,6 +47,7 @@ impl<'tcx> LateLintPass<'tcx> for ManualBits {
             && matches!(resolved_ty.kind(), ty::Int(_) | ty::Uint(_))
             && let ExprKind::Lit(lit) = &other_expr.kind
             && let LitKind::Int(8, _) = lit.node
+            && meets_msrv(cx, msrvs::MANUAL_BITS)
         {
             let mut app = Applicability::MachineApplicable;
             let ty_snip = snippet_with_context(cx, real_ty.span, ctxt, "..", &mut app).0;
@@ -79,8 +64,6 @@ impl<'tcx> LateLintPass<'tcx> for ManualBits {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn get_one_size_of_ty<'tcx>(

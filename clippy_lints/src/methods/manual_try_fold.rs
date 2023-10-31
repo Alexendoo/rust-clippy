@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::is_from_proc_macro;
 use clippy_utils::source::snippet_opt;
@@ -12,16 +12,8 @@ use rustc_span::Span;
 
 use super::MANUAL_TRY_FOLD;
 
-pub(super) fn check<'tcx>(
-    cx: &LateContext<'tcx>,
-    expr: &Expr<'tcx>,
-    init: &Expr<'_>,
-    acc: &Expr<'_>,
-    fold_span: Span,
-    msrv: &Msrv,
-) {
+pub(super) fn check<'tcx>(cx: &LateContext<'tcx>, expr: &Expr<'tcx>, init: &Expr<'_>, acc: &Expr<'_>, fold_span: Span) {
     if !in_external_macro(cx.sess(), fold_span)
-        && msrv.meets(msrvs::ITERATOR_TRY_FOLD)
         && let init_ty = cx.typeck_results().expr_ty(init)
         && let Some(try_trait) = cx.tcx.lang_items().try_trait()
         && implements_trait(cx, init_ty, try_trait, &[])
@@ -31,6 +23,7 @@ pub(super) fn check<'tcx>(
         && let ExprKind::Closure(closure) = acc.kind
         && !is_from_proc_macro(cx, expr)
         && let Some(args_snip) = closure.fn_arg_span.and_then(|fn_arg_span| snippet_opt(cx, fn_arg_span))
+        && meets_msrv(cx, msrvs::ITERATOR_TRY_FOLD)
     {
         let init_snip = rest
             .is_empty()

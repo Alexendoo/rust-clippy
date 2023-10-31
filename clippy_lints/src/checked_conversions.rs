@@ -1,6 +1,6 @@
 //! lint on manually implemented checked conversions that could be transformed into `try_from`
 
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::{in_constant, is_integer_literal, SpanlessEq};
@@ -8,7 +8,7 @@ use rustc_errors::Applicability;
 use rustc_hir::{BinOp, BinOpKind, Expr, ExprKind, QPath, TyKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 
 declare_clippy_lint! {
     /// ### What it does
@@ -35,25 +35,10 @@ declare_clippy_lint! {
     "`try_from` could replace manual bounds checking when casting"
 }
 
-pub struct CheckedConversions {
-    msrv: Msrv,
-}
-
-impl CheckedConversions {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(CheckedConversions => [CHECKED_CONVERSIONS]);
+declare_lint_pass!(CheckedConversions => [CHECKED_CONVERSIONS]);
 
 impl<'tcx> LateLintPass<'tcx> for CheckedConversions {
     fn check_expr(&mut self, cx: &LateContext<'_>, item: &Expr<'_>) {
-        if !self.msrv.meets(msrvs::TRY_FROM) {
-            return;
-        }
-
         let result = if !in_constant(cx, item.hir_id)
             && !in_external_macro(cx.sess(), item.span)
             && let ExprKind::Binary(op, left, right) = &item.kind
@@ -67,24 +52,23 @@ impl<'tcx> LateLintPass<'tcx> for CheckedConversions {
             None
         };
 
-        if let Some(cv) = result {
-            if let Some(to_type) = cv.to_type {
-                let mut applicability = Applicability::MachineApplicable;
-                let snippet = snippet_with_applicability(cx, cv.expr_to_cast.span, "_", &mut applicability);
-                span_lint_and_sugg(
-                    cx,
-                    CHECKED_CONVERSIONS,
-                    item.span,
-                    "checked cast can be simplified",
-                    "try",
-                    format!("{to_type}::try_from({snippet}).is_ok()"),
-                    applicability,
-                );
-            }
+        if let Some(cv) = result
+            && let Some(to_type) = cv.to_type
+            && meets_msrv(cx, msrvs::TRY_FROM)
+        {
+            let mut applicability = Applicability::MachineApplicable;
+            let snippet = snippet_with_applicability(cx, cv.expr_to_cast.span, "_", &mut applicability);
+            span_lint_and_sugg(
+                cx,
+                CHECKED_CONVERSIONS,
+                item.span,
+                "checked cast can be simplified",
+                "try",
+                format!("{to_type}::try_from({snippet}).is_ok()"),
+                applicability,
+            );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 /// Searches for a single check from unsigned to _ is done

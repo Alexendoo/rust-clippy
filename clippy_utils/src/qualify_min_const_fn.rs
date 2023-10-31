@@ -3,7 +3,7 @@
 // of terminologies might not be relevant in the context of Clippy. Note that its behavior might
 // differ from the time of `rustc` even if the name stays the same.
 
-use clippy_config::msrvs::Msrv;
+use clippy_config::msrvs::{current_msrv, meets_msrv};
 use hir::LangItem;
 use rustc_attr::StableSince;
 use rustc_const_eval::transform::check_consts::ConstCx;
@@ -11,6 +11,7 @@ use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_infer::traits::Obligation;
+use rustc_lint::LateContext;
 use rustc_middle::mir::{
     Body, CastKind, NonDivergingIntrinsic, NullOp, Operand, Place, ProjectionElem, Rvalue, Statement, StatementKind,
     Terminator, TerminatorKind,
@@ -26,23 +27,23 @@ use std::borrow::Cow;
 
 type McfResult = Result<(), (Span, Cow<'static, str>)>;
 
-pub fn is_min_const_fn<'tcx>(tcx: TyCtxt<'tcx>, body: &Body<'tcx>, msrv: &Msrv) -> McfResult {
+pub fn is_min_const_fn<'tcx>(cx: &LateContext<'tcx>, body: &Body<'tcx>) -> McfResult {
     let def_id = body.source.def_id();
 
     for local in &body.local_decls {
-        check_ty(tcx, local.ty, local.source_info.span)?;
+        check_ty(cx.tcx, local.ty, local.source_info.span)?;
     }
     // impl trait is gone in MIR, so check the return type manually
     check_ty(
-        tcx,
-        tcx.fn_sig(def_id).instantiate_identity().output().skip_binder(),
+        cx.tcx,
+        cx.tcx.fn_sig(def_id).instantiate_identity().output().skip_binder(),
         body.local_decls.iter().next().unwrap().source_info.span,
     )?;
 
     for bb in &*body.basic_blocks {
-        check_terminator(tcx, body, bb.terminator(), msrv)?;
+        check_terminator(cx, body, bb.terminator())?;
         for stmt in &bb.statements {
-            check_statement(tcx, body, def_id, stmt)?;
+            check_statement(cx.tcx, body, def_id, stmt)?;
         }
     }
     Ok(())
@@ -281,12 +282,7 @@ fn check_place<'tcx>(tcx: TyCtxt<'tcx>, place: Place<'tcx>, span: Span, body: &B
     Ok(())
 }
 
-fn check_terminator<'tcx>(
-    tcx: TyCtxt<'tcx>,
-    body: &Body<'tcx>,
-    terminator: &Terminator<'tcx>,
-    msrv: &Msrv,
-) -> McfResult {
+fn check_terminator<'tcx>(cx: &LateContext<'tcx>, body: &Body<'tcx>, terminator: &Terminator<'tcx>) -> McfResult {
     let span = terminator.source_info.span;
     match &terminator.kind {
         TerminatorKind::FalseEdge { .. }
@@ -297,7 +293,7 @@ fn check_terminator<'tcx>(
         | TerminatorKind::UnwindTerminate(_)
         | TerminatorKind::Unreachable => Ok(()),
         TerminatorKind::Drop { place, .. } => {
-            if !is_ty_const_destruct(tcx, place.ty(&body.local_decls, tcx).ty, body) {
+            if !is_ty_const_destruct(cx.tcx, place.ty(&body.local_decls, cx.tcx).ty, body) {
                 return Err((
                     span,
                     "cannot drop locals with a non constant destructor in const fn".into(),
@@ -305,7 +301,7 @@ fn check_terminator<'tcx>(
             }
             Ok(())
         },
-        TerminatorKind::SwitchInt { discr, targets: _ } => check_operand(tcx, discr, span, body),
+        TerminatorKind::SwitchInt { discr, targets: _ } => check_operand(cx.tcx, discr, span, body),
         TerminatorKind::CoroutineDrop | TerminatorKind::Yield { .. } => {
             Err((span, "const fn coroutines are unstable".into()))
         },
@@ -318,9 +314,9 @@ fn check_terminator<'tcx>(
             unwind: _,
             fn_span: _,
         } => {
-            let fn_ty = func.ty(body, tcx);
+            let fn_ty = func.ty(body, cx.tcx);
             if let ty::FnDef(fn_def_id, _) = *fn_ty.kind() {
-                if !is_const_fn(tcx, fn_def_id, msrv) {
+                if !is_const_fn(cx, fn_def_id) {
                     return Err((
                         span,
                         format!(
@@ -335,17 +331,17 @@ fn check_terminator<'tcx>(
                 // within const fns. `transmute` is allowed in all other const contexts.
                 // This won't really scale to more intrinsics or functions. Let's allow const
                 // transmutes in const fn before we add more hacks to this.
-                if tcx.is_intrinsic(fn_def_id) && tcx.item_name(fn_def_id) == sym::transmute {
+                if cx.tcx.is_intrinsic(fn_def_id) && cx.tcx.item_name(fn_def_id) == sym::transmute {
                     return Err((
                         span,
                         "can only call `transmute` from const items, not `const fn`".into(),
                     ));
                 }
 
-                check_operand(tcx, func, span, body)?;
+                check_operand(cx.tcx, func, span, body)?;
 
                 for arg in args {
-                    check_operand(tcx, arg, span, body)?;
+                    check_operand(cx.tcx, arg, span, body)?;
                 }
                 Ok(())
             } else {
@@ -358,14 +354,14 @@ fn check_terminator<'tcx>(
             msg: _,
             target: _,
             unwind: _,
-        } => check_operand(tcx, cond, span, body),
+        } => check_operand(cx.tcx, cond, span, body),
         TerminatorKind::InlineAsm { .. } => Err((span, "cannot use inline assembly in const fn".into())),
     }
 }
 
-fn is_const_fn(tcx: TyCtxt<'_>, def_id: DefId, msrv: &Msrv) -> bool {
-    tcx.is_const_fn(def_id)
-        && tcx.lookup_const_stability(def_id).map_or(true, |const_stab| {
+fn is_const_fn(cx: &LateContext<'_>, def_id: DefId) -> bool {
+    cx.tcx.is_const_fn(def_id)
+        && cx.tcx.lookup_const_stability(def_id).map_or(true, |const_stab| {
             if let rustc_attr::StabilityLevel::Stable { since, .. } = const_stab.level {
                 // Checking MSRV is manually necessary because `rustc` has no such concept. This entire
                 // function could be removed if `rustc` provided a MSRV-aware version of `is_const_fn`.
@@ -377,14 +373,17 @@ fn is_const_fn(tcx: TyCtxt<'_>, def_id: DefId, msrv: &Msrv) -> bool {
                     StableSince::Err => return false,
                 };
 
-                msrv.meets(RustcVersion::new(
-                    u32::from(const_stab_rust_version.major),
-                    u32::from(const_stab_rust_version.minor),
-                    u32::from(const_stab_rust_version.patch),
-                ))
+                meets_msrv(
+                    cx,
+                    RustcVersion::new(
+                        u32::from(const_stab_rust_version.major),
+                        u32::from(const_stab_rust_version.minor),
+                        u32::from(const_stab_rust_version.patch),
+                    ),
+                )
             } else {
                 // Unstable const fn with the feature enabled.
-                msrv.current().is_none()
+                current_msrv(cx).is_none()
             }
         })
 }

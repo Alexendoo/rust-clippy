@@ -1,3 +1,4 @@
+use clippy_config::extract_msrv_attr;
 use clippy_config::msrvs::{self, Msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::{trim_span, walk_span_to_context};
@@ -45,7 +46,7 @@ impl EarlyLintPass for AlmostCompleteRange {
             let ctxt = e.span.ctxt();
             let sugg = if let Some(start) = walk_span_to_context(start.span, ctxt)
                 && let Some(end) = walk_span_to_context(end.span, ctxt)
-                && self.msrv.meets(msrvs::RANGE_INCLUSIVE)
+                && self.msrv.meets(cx, msrvs::RANGE_INCLUSIVE)
             {
                 Some((trim_span(cx.sess().source_map(), start.between(end)), "..="))
             } else {
@@ -59,7 +60,7 @@ impl EarlyLintPass for AlmostCompleteRange {
         if let PatKind::Range(Some(start), Some(end), kind) = &p.kind
             && matches!(kind.node, RangeEnd::Excluded)
         {
-            let sugg = if self.msrv.meets(msrvs::RANGE_INCLUSIVE) {
+            let sugg = if self.msrv.meets(cx, msrvs::RANGE_INCLUSIVE) {
                 "..="
             } else {
                 "..."
@@ -68,7 +69,7 @@ impl EarlyLintPass for AlmostCompleteRange {
         }
     }
 
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }
 
 fn check_range(cx: &EarlyContext<'_>, span: Span, start: &Expr, end: &Expr, sugg: Option<(Span, &str)>) {

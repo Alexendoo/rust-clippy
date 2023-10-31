@@ -1,5 +1,5 @@
 use super::EXPLICIT_ITER_LOOP;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::{
@@ -13,25 +13,19 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::{self, EarlyBinder, Ty, TypeAndMut};
 use rustc_span::sym;
 
-pub(super) fn check(
-    cx: &LateContext<'_>,
-    self_arg: &Expr<'_>,
-    call_expr: &Expr<'_>,
-    msrv: &Msrv,
-    enforce_iter_loop_reborrow: bool,
-) {
+pub(super) fn check(cx: &LateContext<'_>, self_arg: &Expr<'_>, call_expr: &Expr<'_>, enforce_iter_loop_reborrow: bool) {
     let Some((adjust, ty)) = is_ref_iterable(cx, self_arg, call_expr, enforce_iter_loop_reborrow) else {
         return;
     };
     if let ty::Array(_, count) = *ty.peel_refs().kind() {
         if !ty.is_ref() {
-            if !msrv.meets(msrvs::ARRAY_INTO_ITERATOR) {
+            if !meets_msrv(cx, msrvs::ARRAY_INTO_ITERATOR) {
                 return;
             }
         } else if count
             .try_eval_target_usize(cx.tcx, cx.param_env)
             .map_or(true, |x| x > 32)
-            && !msrv.meets(msrvs::ARRAY_IMPL_ANY_LEN)
+            && !meets_msrv(cx, msrvs::ARRAY_IMPL_ANY_LEN)
         {
             return;
         }

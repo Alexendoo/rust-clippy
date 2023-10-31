@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::{is_trait_method, match_def_path, paths, peel_hir_expr_refs};
 use rustc_errors::Applicability;
@@ -6,7 +6,7 @@ use rustc_hir::def::{DefKind, Res};
 use rustc_hir::{Expr, ExprKind, Mutability, QPath};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::sym;
 
 declare_clippy_lint! {
@@ -32,24 +32,12 @@ declare_clippy_lint! {
     "`&std::path::MAIN_SEPARATOR.to_string()` can be replaced by `std::path::MAIN_SEPARATOR_STR`"
 }
 
-pub struct ManualMainSeparatorStr {
-    msrv: Msrv,
-}
-
-impl ManualMainSeparatorStr {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(ManualMainSeparatorStr => [MANUAL_MAIN_SEPARATOR_STR]);
+declare_lint_pass!(ManualMainSeparatorStr => [MANUAL_MAIN_SEPARATOR_STR]);
 
 impl LateLintPass<'_> for ManualMainSeparatorStr {
     fn check_expr(&mut self, cx: &LateContext<'_>, expr: &Expr<'_>) {
-        if self.msrv.meets(msrvs::PATH_MAIN_SEPARATOR_STR)
-            && let (target, _) = peel_hir_expr_refs(expr)
-            && is_trait_method(cx, target, sym::ToString)
+        let (target, _) = peel_hir_expr_refs(expr);
+        if is_trait_method(cx, target, sym::ToString)
             && let ExprKind::MethodCall(path, receiver, &[], _) = target.kind
             && path.ident.name == sym::to_string
             && let ExprKind::Path(QPath::Resolved(None, path)) = receiver.kind
@@ -57,6 +45,7 @@ impl LateLintPass<'_> for ManualMainSeparatorStr {
             && match_def_path(cx, receiver_def_id, &paths::PATH_MAIN_SEPARATOR)
             && let ty::Ref(_, ty, Mutability::Not) = cx.typeck_results().expr_ty_adjusted(expr).kind()
             && ty.is_str()
+            && meets_msrv(cx, msrvs::PATH_MAIN_SEPARATOR_STR)
         {
             span_lint_and_sugg(
                 cx,
@@ -69,6 +58,4 @@ impl LateLintPass<'_> for ManualMainSeparatorStr {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }

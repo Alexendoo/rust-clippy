@@ -446,9 +446,27 @@ msrv_aliases! {
 }
 ```
 
+The way to test the MSRV differs between late and early passes
+
+### Checking the MSRV in late passes
+
+In late lint passes use `meets_msrv`, this takes into account any
+`#[clippy::msrv]` attributes on parent nodes.
+
+```rust
+if ...
+    && ...
+    && meets_msrv(cx, msrvs::STR_STRIP_PREFIX)
+{
+    span_lint(...);
+}
+```
+
+### Checking the MSRV in early passes
+
 In order to access the project-configured MSRV, you need to have an `msrv` field
-in the LintPass struct, and a constructor to initialize the field. The `msrv`
-value is passed to the constructor in `clippy_lints/lib.rs`.
+in the EarlyLintPass struct, and a constructor to initialize the field. The
+`msrv` value is passed to the constructor in `clippy_lints/lib.rs`.
 
 ```rust
 pub struct ManualStrip {
@@ -463,19 +481,18 @@ impl ManualStrip {
 }
 ```
 
-The project's MSRV can then be matched against the feature MSRV in the LintPass
-using the `Msrv::meets` method.
+The project's MSRV can then be matched against the feature MSRV in the
+EarlyLintPass using the `Msrv::meets` method.
 
 ``` rust
-if !self.msrv.meets(msrvs::STR_STRIP_PREFIX) {
+if !self.msrv.meets(cx, msrvs::STR_STRIP_PREFIX) {
     return;
 }
 ```
 
 The project's MSRV can also be specified as an attribute, which overrides
 the value from `clippy.toml`. This can be accounted for using the
-`extract_msrv_attr!(LintContext)` macro and passing
-`LateContext`/`EarlyContext`.
+`extract_msrv_attr!()` macro.
 
 ```rust,ignore
 impl<'tcx> LateLintPass<'tcx> for ManualStrip {
@@ -485,6 +502,8 @@ impl<'tcx> LateLintPass<'tcx> for ManualStrip {
     extract_msrv_attr!(LateContext);
 }
 ```
+
+### Testing the MSRV check
 
 Once the `msrv` is added to the lint, a relevant test case should be added to
 the lint's test file, `tests/ui/manual_strip.rs` in this example. It should

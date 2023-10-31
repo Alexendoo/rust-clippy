@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant_full_int, FullInt};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_context;
@@ -7,7 +7,7 @@ use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Expr, ExprKind, Node, TyKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 
 declare_clippy_lint! {
     /// ### What it does
@@ -33,30 +33,19 @@ declare_clippy_lint! {
     "manually reimplementing `rem_euclid`"
 }
 
-pub struct ManualRemEuclid {
-    msrv: Msrv,
-}
-
-impl ManualRemEuclid {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(ManualRemEuclid => [MANUAL_REM_EUCLID]);
+declare_lint_pass!(ManualRemEuclid => [MANUAL_REM_EUCLID]);
 
 impl<'tcx> LateLintPass<'tcx> for ManualRemEuclid {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if !self.msrv.meets(msrvs::REM_EUCLID) {
-            return;
-        }
-
-        if in_constant(cx, expr.hir_id) && !self.msrv.meets(msrvs::REM_EUCLID_CONST) {
-            return;
-        }
-
         if in_external_macro(cx.sess(), expr.span) {
+            return;
+        }
+
+        if !meets_msrv(cx, msrvs::REM_EUCLID) {
+            return;
+        }
+
+        if in_constant(cx, expr.hir_id) && !meets_msrv(cx, msrvs::REM_EUCLID_CONST) {
             return;
         }
 
@@ -103,8 +92,6 @@ impl<'tcx> LateLintPass<'tcx> for ManualRemEuclid {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 // Checks if either the left or right expressions can be an unsigned int constant and returns that

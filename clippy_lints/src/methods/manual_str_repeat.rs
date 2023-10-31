@@ -1,3 +1,4 @@
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::is_path_diagnostic_item;
 use clippy_utils::source::{snippet_with_applicability, snippet_with_context};
@@ -64,6 +65,7 @@ pub(super) fn check(
         && let ctxt = collect_expr.span.ctxt()
         && ctxt == take_expr.span.ctxt()
         && ctxt == take_self_arg.span.ctxt()
+        && meets_msrv(cx, msrvs::STR_REPEAT)
     {
         let mut app = Applicability::MachineApplicable;
         let count_snip = snippet_with_context(cx, take_arg.span, ctxt, "..", &mut app).0;

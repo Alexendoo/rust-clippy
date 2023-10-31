@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::sugg::Sugg;
 use rustc_errors::Applicability;
@@ -8,19 +8,12 @@ use rustc_middle::ty::{self, Ty};
 
 use super::CAST_ABS_TO_UNSIGNED;
 
-pub(super) fn check(
-    cx: &LateContext<'_>,
-    expr: &Expr<'_>,
-    cast_expr: &Expr<'_>,
-    cast_from: Ty<'_>,
-    cast_to: Ty<'_>,
-    msrv: &Msrv,
-) {
-    if msrv.meets(msrvs::UNSIGNED_ABS)
-        && let ty::Int(from) = cast_from.kind()
+pub(super) fn check(cx: &LateContext<'_>, expr: &Expr<'_>, cast_expr: &Expr<'_>, cast_from: Ty<'_>, cast_to: Ty<'_>) {
+    if let ty::Int(from) = cast_from.kind()
         && let ty::Uint(to) = cast_to.kind()
         && let ExprKind::MethodCall(method_path, receiver, ..) = cast_expr.kind
         && method_path.ident.name.as_str() == "abs"
+        && meets_msrv(cx, msrvs::UNSIGNED_ABS)
     {
         let span = if from.bit_width() == to.bit_width() {
             expr.span

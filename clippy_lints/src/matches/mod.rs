@@ -24,7 +24,7 @@ mod single_match;
 mod try_err;
 mod wild_in_or_pats;
 
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::source::{snippet_opt, walk_span_to_context};
 use clippy_utils::{higher, in_constant, is_direct_expn_of, is_span_match, tokenize_with_text};
 use rustc_hir::{Arm, Expr, ExprKind, Local, MatchSource, Pat};
@@ -968,15 +968,13 @@ declare_clippy_lint! {
 }
 
 pub struct Matches {
-    msrv: Msrv,
     infallible_destructuring_match_linted: bool,
 }
 
 impl Matches {
     #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
+    pub fn new() -> Self {
         Self {
-            msrv,
             infallible_destructuring_match_linted: false,
         }
     }
@@ -1043,7 +1041,7 @@ impl<'tcx> LateLintPass<'tcx> for Matches {
 
             if !from_expansion && !contains_cfg_arm(cx, expr, ex, arms) {
                 if source == MatchSource::Normal {
-                    if !(self.msrv.meets(msrvs::MATCHES_MACRO) && match_like_matches::check_match(cx, expr, ex, arms)) {
+                    if !(meets_msrv(cx, msrvs::MATCHES_MACRO) && match_like_matches::check_match(cx, expr, ex, arms)) {
                         match_same_arms::check(cx, arms);
                     }
 
@@ -1076,7 +1074,7 @@ impl<'tcx> LateLintPass<'tcx> for Matches {
             collapsible_match::check_if_let(cx, if_let.let_pat, if_let.if_then, if_let.if_else);
             if !from_expansion {
                 if let Some(else_expr) = if_let.if_else {
-                    if self.msrv.meets(msrvs::MATCHES_MACRO) {
+                    if meets_msrv(cx, msrvs::MATCHES_MACRO) {
                         match_like_matches::check_if_let(
                             cx,
                             expr,
@@ -1120,8 +1118,6 @@ impl<'tcx> LateLintPass<'tcx> for Matches {
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'_>) {
         rest_pat_in_fully_bound_struct::check(cx, pat);
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 /// Checks if there are any arms with a `#[cfg(..)]` attribute.

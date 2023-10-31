@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::sugg::Sugg;
@@ -9,11 +9,7 @@ use rustc_middle::ty::{self, TypeAndMut};
 
 use super::PTR_AS_PTR;
 
-pub(super) fn check(cx: &LateContext<'_>, expr: &Expr<'_>, msrv: &Msrv) {
-    if !msrv.meets(msrvs::POINTER_CAST) {
-        return;
-    }
-
+pub(super) fn check(cx: &LateContext<'_>, expr: &Expr<'_>) {
     if let ExprKind::Cast(cast_expr, cast_to_hir_ty) = expr.kind
         && let (cast_from, cast_to) = (cx.typeck_results().expr_ty(cast_expr), cx.typeck_results().expr_ty(expr))
         && let ty::RawPtr(TypeAndMut { mutbl: from_mutbl, .. }) = cast_from.kind()
@@ -23,6 +19,7 @@ pub(super) fn check(cx: &LateContext<'_>, expr: &Expr<'_>, msrv: &Msrv) {
         // The `U` in `pointer::cast` have to be `Sized`
         // as explained here: https://github.com/rust-lang/rust/issues/60602.
         && to_pointee_ty.is_sized(cx.tcx, cx.param_env)
+        && meets_msrv(cx, msrvs::POINTER_CAST)
     {
         let mut app = Applicability::MachineApplicable;
         let cast_expr_sugg = Sugg::hir_with_applicability(cx, cast_expr, "_", &mut app);

@@ -1,4 +1,5 @@
 use rustc_ast::Attribute;
+use rustc_lint::{EarlyContext, LateContext, LintContext};
 use rustc_semver::RustcVersion;
 use rustc_session::Session;
 use rustc_span::{sym, Symbol};
@@ -51,6 +52,23 @@ msrv_aliases! {
     1,15,0 { MAYBE_BOUND_IN_WHERE }
 }
 
+pub fn current_msrv(cx: &LateContext<'_>) -> Option<RustcVersion> {
+    let start = cx.last_node_with_lint_attrs;
+
+    std::iter::once(start)
+        .chain(cx.tcx.hir().parent_id_iter(start))
+        .find_map(|id| Msrv::parse_attr(cx.sess(), cx.tcx.hir().attrs(id)))
+        .or_else(|| crate::Conf::get().msrv.current())
+}
+
+/// Check if the `required` version is met by the current MSRV, for early passes use [`Msrv::meets`]
+pub fn meets_msrv(cx: &LateContext<'_>, required: RustcVersion) -> bool {
+    match current_msrv(cx) {
+        Some(msrv) => msrv.meets(required),
+        None => true,
+    }
+}
+
 /// Tracks the current MSRV from `clippy.toml`, `Cargo.toml` or set via `#[clippy::msrv]`
 #[derive(Debug, Clone)]
 pub struct Msrv {
@@ -96,7 +114,12 @@ impl Msrv {
         self.stack.last().copied()
     }
 
-    pub fn meets(&self, required: RustcVersion) -> bool {
+    /// Check if the `required` version is met by the current MSRV, for late passes use
+    /// [`meets_msrv`]
+    ///
+    /// The [`EarlyContext`] arg ensures the method is only used in early passes, tracking the
+    /// attribute stack is incompatible with `register_late_mod_pass`
+    pub fn meets(&self, _: &EarlyContext<'_>, required: RustcVersion) -> bool {
         self.current().map_or(true, |version| version.meets(required))
     }
 

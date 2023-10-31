@@ -1,4 +1,5 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::extract_msrv_attr;
+use clippy_config::msrvs::{self, meets_msrv, Msrv};
 use clippy_utils::diagnostics::{span_lint_and_then, span_lint_hir_and_then};
 use clippy_utils::is_doc_hidden;
 use clippy_utils::source::snippet_opt;
@@ -77,16 +78,14 @@ impl_lint_pass!(ManualNonExhaustiveStruct => [MANUAL_NON_EXHAUSTIVE]);
 
 #[expect(clippy::module_name_repetitions)]
 pub struct ManualNonExhaustiveEnum {
-    msrv: Msrv,
     constructed_enum_variants: FxHashSet<(DefId, DefId)>,
     potential_enums: Vec<(LocalDefId, LocalDefId, Span, Span)>,
 }
 
 impl ManualNonExhaustiveEnum {
     #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
+    pub fn new() -> Self {
         Self {
-            msrv,
             constructed_enum_variants: FxHashSet::default(),
             potential_enums: Vec::new(),
         }
@@ -97,7 +96,7 @@ impl_lint_pass!(ManualNonExhaustiveEnum => [MANUAL_NON_EXHAUSTIVE]);
 
 impl EarlyLintPass for ManualNonExhaustiveStruct {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &ast::Item) {
-        if !self.msrv.meets(msrvs::NON_EXHAUSTIVE) {
+        if !self.msrv.meets(cx, msrvs::NON_EXHAUSTIVE) {
             return;
         }
 
@@ -143,17 +142,14 @@ impl EarlyLintPass for ManualNonExhaustiveStruct {
         }
     }
 
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }
 
 impl<'tcx> LateLintPass<'tcx> for ManualNonExhaustiveEnum {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'_>) {
-        if !self.msrv.meets(msrvs::NON_EXHAUSTIVE) {
-            return;
-        }
-
         if let hir::ItemKind::Enum(def, _) = &item.kind
             && def.variants.len() > 1
+            && meets_msrv(cx, msrvs::NON_EXHAUSTIVE)
         {
             let mut iter = def.variants.iter().filter_map(|v| {
                 (matches!(v.data, hir::VariantData::Unit(_, _))
@@ -210,6 +206,4 @@ impl<'tcx> LateLintPass<'tcx> for ManualNonExhaustiveEnum {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }

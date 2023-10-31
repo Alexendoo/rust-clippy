@@ -1,15 +1,12 @@
-#![allow(unused_imports)]
-
 use super::ITER_KV_MAP;
-use clippy_config::msrvs::{self, Msrv};
-use clippy_utils::diagnostics::{multispan_sugg, span_lint_and_sugg, span_lint_and_then};
-use clippy_utils::source::{snippet, snippet_with_applicability};
+use clippy_config::msrvs::{self, meets_msrv};
+use clippy_utils::diagnostics::span_lint_and_sugg;
+use clippy_utils::pat_is_wild;
+use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::is_type_diagnostic_item;
-use clippy_utils::{pat_is_wild, sugg};
-use rustc_hir::{BindingAnnotation, Body, BorrowKind, ByRef, Expr, ExprKind, Mutability, Pat, PatKind};
-use rustc_lint::{LateContext, LintContext};
-use rustc_middle::ty;
-use rustc_span::{sym, Span};
+use rustc_hir::{Body, ByRef, Expr, ExprKind, Mutability, PatKind};
+use rustc_lint::LateContext;
+use rustc_span::sym;
 
 /// lint use of:
 /// - `hashmap.iter().map(|(_, v)| v)`
@@ -22,9 +19,8 @@ pub(super) fn check<'tcx>(
     expr: &'tcx Expr<'tcx>,  // .iter().map(|(_, v_| v))
     recv: &'tcx Expr<'tcx>,  // hashmap
     m_arg: &'tcx Expr<'tcx>, // |(_, v)| v
-    msrv: &Msrv,
 ) {
-    if map_type == "into_iter" && !msrv.meets(msrvs::INTO_KEYS) {
+    if map_type == "into_iter" && !meets_msrv(cx, msrvs::INTO_KEYS) {
         return;
     }
     if !expr.span.from_expansion()

@@ -1,7 +1,7 @@
 //! Lint for `c.is_digit(10)`
 
 use super::IS_DIGIT_ASCII_RADIX;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant_full_int, FullInt};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
@@ -14,13 +14,12 @@ pub(super) fn check<'tcx>(
     expr: &'tcx Expr<'_>,
     self_arg: &'tcx Expr<'_>,
     radix: &'tcx Expr<'_>,
-    msrv: &Msrv,
 ) {
-    if !msrv.meets(msrvs::IS_ASCII_DIGIT) {
+    if !cx.typeck_results().expr_ty_adjusted(self_arg).peel_refs().is_char() {
         return;
     }
 
-    if !cx.typeck_results().expr_ty_adjusted(self_arg).peel_refs().is_char() {
+    if !meets_msrv(cx, msrvs::IS_ASCII_DIGIT) {
         return;
     }
 

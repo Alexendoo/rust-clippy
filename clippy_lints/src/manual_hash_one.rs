@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::source::snippet_opt;
 use clippy_utils::visitors::{is_local_used, local_used_once};
@@ -6,7 +6,7 @@ use clippy_utils::{is_trait_method, path_to_local_id};
 use rustc_errors::Applicability;
 use rustc_hir::{BindingAnnotation, ExprKind, Local, Node, PatKind, StmtKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::sym;
 
 declare_clippy_lint! {
@@ -46,18 +46,7 @@ declare_clippy_lint! {
     "manual implementations of `BuildHasher::hash_one`"
 }
 
-pub struct ManualHashOne {
-    msrv: Msrv,
-}
-
-impl ManualHashOne {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(ManualHashOne => [MANUAL_HASH_ONE]);
+declare_lint_pass!(ManualHashOne => [MANUAL_HASH_ONE]);
 
 impl LateLintPass<'_> for ManualHashOne {
     fn check_local(&mut self, cx: &LateContext<'_>, local: &Local<'_>) {
@@ -96,7 +85,7 @@ impl LateLintPass<'_> for ManualHashOne {
             && let ExprKind::MethodCall(seg, _, [], _) = finish_expr.kind
             && seg.ident.name == sym!(finish)
 
-            && self.msrv.meets(msrvs::BUILD_HASHER_HASH_ONE)
+            && meets_msrv(cx, msrvs::BUILD_HASHER_HASH_ONE)
         {
             span_lint_hir_and_then(
                 cx,
@@ -127,6 +116,4 @@ impl LateLintPass<'_> for ManualHashOne {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }

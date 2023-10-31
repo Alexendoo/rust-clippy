@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::source::{snippet, snippet_with_applicability};
 use clippy_utils::sugg::Sugg;
@@ -9,7 +9,7 @@ use rustc_hir::LangItem::OptionNone;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::lint::in_external_macro;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::symbol::sym;
 use rustc_span::Span;
 
@@ -98,8 +98,7 @@ declare_clippy_lint! {
     "replacing a value of type `T` with `T::default()` instead of using `std::mem::take`"
 }
 
-impl_lint_pass!(MemReplace =>
-    [MEM_REPLACE_OPTION_WITH_NONE, MEM_REPLACE_WITH_UNINIT, MEM_REPLACE_WITH_DEFAULT]);
+declare_lint_pass!(MemReplace => [MEM_REPLACE_OPTION_WITH_NONE, MEM_REPLACE_WITH_UNINIT, MEM_REPLACE_WITH_DEFAULT]);
 
 fn check_replace_option_with_none(cx: &LateContext<'_>, dest: &Expr<'_>, expr_span: Span) {
     // Since this is a late pass (already type-checked),
@@ -183,7 +182,7 @@ fn check_replace_with_default(cx: &LateContext<'_>, src: &Expr<'_>, dest: &Expr<
     if is_non_aggregate_primitive_type(expr_type) {
         return;
     }
-    if is_default_equivalent(cx, src) && !in_external_macro(cx.tcx.sess, expr_span) {
+    if is_default_equivalent(cx, src) && !in_external_macro(cx.tcx.sess, expr_span) && meets_msrv(cx, msrvs::MEM_TAKE) {
         span_lint_and_then(
             cx,
             MEM_REPLACE_WITH_DEFAULT,
@@ -205,17 +204,6 @@ fn check_replace_with_default(cx: &LateContext<'_>, src: &Expr<'_>, dest: &Expr<
     }
 }
 
-pub struct MemReplace {
-    msrv: Msrv,
-}
-
-impl MemReplace {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
 impl<'tcx> LateLintPass<'tcx> for MemReplace {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
         if let ExprKind::Call(func, [dest, src]) = expr.kind
@@ -227,11 +215,10 @@ impl<'tcx> LateLintPass<'tcx> for MemReplace {
             // Check that second argument is `Option::None`
             if is_res_lang_ctor(cx, path_res(cx, src), OptionNone) {
                 check_replace_option_with_none(cx, dest, expr.span);
-            } else if self.msrv.meets(msrvs::MEM_TAKE) {
+            } else {
                 check_replace_with_default(cx, src, dest, expr.span);
             }
             check_replace_with_uninit(cx, src, dest, expr.span);
         }
     }
-    extract_msrv_attr!(LateContext);
 }

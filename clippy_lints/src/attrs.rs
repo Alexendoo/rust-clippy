@@ -1,5 +1,6 @@
 //! checks for attributes
 
+use clippy_config::extract_msrv_attr;
 use clippy_config::msrvs::{self, Msrv};
 use clippy_utils::diagnostics::{span_lint, span_lint_and_help, span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::is_from_proc_macro;
@@ -807,7 +808,7 @@ impl EarlyLintPass for EarlyAttributes {
         check_misused_cfg(cx, attr);
     }
 
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }
 
 /// Check for empty lines after outer attributes.
@@ -857,7 +858,7 @@ fn check_empty_line_after_outer_attr(cx: &EarlyContext<'_>, item: &rustc_ast::It
 }
 
 fn check_deprecated_cfg_attr(cx: &EarlyContext<'_>, attr: &Attribute, msrv: &Msrv) {
-    if msrv.meets(msrvs::TOOL_ATTRIBUTES)
+    if msrv.meets(cx, msrvs::TOOL_ATTRIBUTES)
         // check cfg_attr
         && attr.has_name(sym::cfg_attr)
         && let Some(items) = attr.meta_item_list()

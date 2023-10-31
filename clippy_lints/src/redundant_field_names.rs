@@ -1,3 +1,4 @@
+use clippy_config::extract_msrv_attr;
 use clippy_config::msrvs::{self, Msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use rustc_ast::ast::{Expr, ExprKind};
@@ -50,7 +51,7 @@ impl_lint_pass!(RedundantFieldNames => [REDUNDANT_FIELD_NAMES]);
 
 impl EarlyLintPass for RedundantFieldNames {
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
-        if !self.msrv.meets(msrvs::FIELD_INIT_SHORTHAND) {
+        if !self.msrv.meets(cx, msrvs::FIELD_INIT_SHORTHAND) {
             return;
         }
 
@@ -81,5 +82,5 @@ impl EarlyLintPass for RedundantFieldNames {
             }
         }
     }
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }

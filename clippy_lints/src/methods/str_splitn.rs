@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::{span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::source::snippet_with_context;
@@ -23,7 +23,6 @@ pub(super) fn check(
     self_arg: &Expr<'_>,
     pat_arg: &Expr<'_>,
     count: u128,
-    msrv: &Msrv,
 ) {
     if count < 2 || !cx.typeck_results().expr_ty_adjusted(self_arg).peel_refs().is_str() {
         return;
@@ -33,7 +32,7 @@ pub(super) fn check(
         IterUsageKind::Nth(n) => count > n + 1,
         IterUsageKind::NextTuple => count > 2,
     };
-    let manual = count == 2 && msrv.meets(msrvs::STR_SPLIT_ONCE);
+    let manual = count == 2 && meets_msrv(cx, msrvs::STR_SPLIT_ONCE);
 
     match parse_iter_usage(cx, expr.span.ctxt(), cx.tcx.hir().parent_iter(expr.hir_id)) {
         Some(usage) if needless(usage.kind) => lint_needless(cx, method_name, expr, self_arg, pat_arg),

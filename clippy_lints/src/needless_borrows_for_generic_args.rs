@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::mir::{enclosing_mir, expr_local, local_assignments, used_exactly_once, PossibleBorrowerMap};
 use clippy_utils::source::snippet_with_context;
@@ -61,18 +61,14 @@ pub struct NeedlessBorrowsForGenericArgs<'tcx> {
     /// `needless_borrow_impl_arg_position` to determine when a borrowed expression can instead
     /// be moved.
     possible_borrowers: Vec<(LocalDefId, PossibleBorrowerMap<'tcx, 'tcx>)>,
-
-    // `IntoIterator` for arrays requires Rust 1.53.
-    msrv: Msrv,
 }
 impl_lint_pass!(NeedlessBorrowsForGenericArgs<'_> => [NEEDLESS_BORROWS_FOR_GENERIC_ARGS]);
 
 impl NeedlessBorrowsForGenericArgs<'_> {
     #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
+    pub fn new() -> Self {
         Self {
             possible_borrowers: Vec::new(),
-            msrv,
         }
     }
 }
@@ -112,7 +108,6 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessBorrowsForGenericArgs<'tcx> {
                 i,
                 ty,
                 expr,
-                &self.msrv,
             )
             && count != 0
         {
@@ -138,8 +133,6 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessBorrowsForGenericArgs<'tcx> {
             self.possible_borrowers.pop();
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn path_has_args(p: &QPath<'_>) -> bool {
@@ -156,7 +149,6 @@ fn path_has_args(p: &QPath<'_>) -> bool {
 /// * The borrowed expression meets all the generic type's constraints.
 /// * The generic type appears only once in the functions signature.
 /// * The borrowed value will not be moved if it is used later in the function.
-#[expect(clippy::too_many_arguments)]
 fn needless_borrow_count<'tcx>(
     cx: &LateContext<'tcx>,
     possible_borrowers: &mut Vec<(LocalDefId, PossibleBorrowerMap<'tcx, 'tcx>)>,
@@ -165,7 +157,6 @@ fn needless_borrow_count<'tcx>(
     arg_index: usize,
     param_ty: ParamTy,
     mut expr: &Expr<'tcx>,
-    msrv: &Msrv,
 ) -> usize {
     let destruct_trait_def_id = cx.tcx.lang_items().destruct_trait();
     let sized_trait_def_id = cx.tcx.lang_items().sized_trait();
@@ -258,7 +249,7 @@ fn needless_borrow_count<'tcx>(
                 && let ty::Param(param_ty) = trait_predicate.self_ty().kind()
                 && let GenericArgKind::Type(ty) = args_with_referent_ty[param_ty.index as usize].unpack()
                 && ty.is_array()
-                && !msrv.meets(msrvs::ARRAY_INTO_ITERATOR)
+                && !meets_msrv(cx, msrvs::ARRAY_INTO_ITERATOR)
             {
                 return false;
             }

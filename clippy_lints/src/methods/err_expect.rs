@@ -1,5 +1,5 @@
 use super::ERR_EXPECT;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::ty::{has_debug_impl, is_type_diagnostic_item};
 use rustc_errors::Applicability;
@@ -14,19 +14,17 @@ pub(super) fn check(
     recv: &rustc_hir::Expr<'_>,
     expect_span: Span,
     err_span: Span,
-    msrv: &Msrv,
 ) {
     if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(recv), sym::Result)
-        // Test the version to make sure the lint can be showed (expect_err has been
-        // introduced in rust 1.17.0 : https://github.com/rust-lang/rust/pull/38982)
-        && msrv.meets(msrvs::EXPECT_ERR)
-
         // Grabs the `Result<T, E>` type
         && let result_type = cx.typeck_results().expr_ty(recv)
         // Tests if the T type in a `Result<T, E>` is not None
         && let Some(data_type) = get_data_type(cx, result_type)
         // Tests if the T type in a `Result<T, E>` implements debug
         && has_debug_impl(cx, data_type)
+        // Test the version to make sure the lint can be showed (expect_err has been
+        // introduced in rust 1.17.0 : https://github.com/rust-lang/rust/pull/38982)
+        && meets_msrv(cx, msrvs::EXPECT_ERR)
     {
         span_lint_and_sugg(
             cx,

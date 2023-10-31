@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::is_from_proc_macro;
 use clippy_utils::ty::same_type_and_consts;
@@ -54,17 +54,13 @@ declare_clippy_lint! {
 }
 
 pub struct UseSelf {
-    msrv: Msrv,
     stack: Vec<StackItem>,
 }
 
 impl UseSelf {
     #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self {
-            msrv,
-            stack: Vec::new(),
-        }
+    pub fn new() -> Self {
+        Self { stack: Vec::new() }
     }
 }
 
@@ -209,7 +205,6 @@ impl<'tcx> LateLintPass<'tcx> for UseSelf {
 
     fn check_ty(&mut self, cx: &LateContext<'_>, hir_ty: &hir::Ty<'_>) {
         if !hir_ty.span.from_expansion()
-            && self.msrv.meets(msrvs::TYPE_ALIAS_ENUM_VARIANTS)
             && let Some(&StackItem::Check {
                 impl_id,
                 in_body,
@@ -227,6 +222,7 @@ impl<'tcx> LateLintPass<'tcx> for UseSelf {
                 hir_ty_to_ty(cx.tcx, hir_ty)
             }
             && same_type_and_consts(ty, cx.tcx.type_of(impl_id).instantiate_identity())
+            && meets_msrv(cx, msrvs::TYPE_ALIAS_ENUM_VARIANTS)
         {
             span_lint(cx, hir_ty.span);
         }
@@ -234,9 +230,9 @@ impl<'tcx> LateLintPass<'tcx> for UseSelf {
 
     fn check_expr(&mut self, cx: &LateContext<'_>, expr: &Expr<'_>) {
         if !expr.span.from_expansion()
-            && self.msrv.meets(msrvs::TYPE_ALIAS_ENUM_VARIANTS)
             && let Some(&StackItem::Check { impl_id, .. }) = self.stack.last()
             && cx.typeck_results().expr_ty(expr) == cx.tcx.type_of(impl_id).instantiate_identity()
+            && meets_msrv(cx, msrvs::TYPE_ALIAS_ENUM_VARIANTS)
         {
         } else {
             return;
@@ -255,19 +251,17 @@ impl<'tcx> LateLintPass<'tcx> for UseSelf {
 
     fn check_pat(&mut self, cx: &LateContext<'_>, pat: &Pat<'_>) {
         if !pat.span.from_expansion()
-            && self.msrv.meets(msrvs::TYPE_ALIAS_ENUM_VARIANTS)
             && let Some(&StackItem::Check { impl_id, .. }) = self.stack.last()
             // get the path from the pattern
             && let PatKind::Path(QPath::Resolved(_, path))
                  | PatKind::TupleStruct(QPath::Resolved(_, path), _, _)
                  | PatKind::Struct(QPath::Resolved(_, path), _, _) = pat.kind
             && cx.typeck_results().pat_ty(pat) == cx.tcx.type_of(impl_id).instantiate_identity()
+            && meets_msrv(cx, msrvs::TYPE_ALIAS_ENUM_VARIANTS)
         {
             check_path(cx, path);
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 #[derive(Default)]

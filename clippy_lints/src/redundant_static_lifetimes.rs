@@ -1,3 +1,4 @@
+use clippy_config::extract_msrv_attr;
 use clippy_config::msrvs::{self, Msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet;
@@ -96,7 +97,7 @@ impl RedundantStaticLifetimes {
 
 impl EarlyLintPass for RedundantStaticLifetimes {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        if !self.msrv.meets(msrvs::STATIC_IN_CONST) {
+        if !self.msrv.meets(cx, msrvs::STATIC_IN_CONST) {
             return;
         }
 
@@ -113,5 +114,5 @@ impl EarlyLintPass for RedundantStaticLifetimes {
         }
     }
 
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }

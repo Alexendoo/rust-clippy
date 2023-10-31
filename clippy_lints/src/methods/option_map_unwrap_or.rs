@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::ty::{is_copy, is_type_diagnostic_item};
@@ -14,7 +14,6 @@ use rustc_span::{sym, Span};
 use super::MAP_UNWRAP_OR;
 
 /// lint use of `map().unwrap_or()` for `Option`s
-#[expect(clippy::too_many_arguments)]
 pub(super) fn check<'tcx>(
     cx: &LateContext<'tcx>,
     expr: &rustc_hir::Expr<'_>,
@@ -23,7 +22,6 @@ pub(super) fn check<'tcx>(
     unwrap_recv: &rustc_hir::Expr<'_>,
     unwrap_arg: &'tcx rustc_hir::Expr<'_>,
     map_span: Span,
-    msrv: &Msrv,
 ) {
     // lint if the caller of `map()` is an `Option`
     if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(recv), sym::Option) {
@@ -72,7 +70,7 @@ pub(super) fn check<'tcx>(
         }
 
         // is_some_and is stabilised && `unwrap_or` argument is false; suggest `is_some_and` instead
-        let suggest_is_some_and = msrv.meets(msrvs::OPTION_IS_SOME_AND)
+        let suggest_is_some_and = meets_msrv(cx, msrvs::OPTION_IS_SOME_AND)
             && matches!(&unwrap_arg.kind, ExprKind::Lit(lit)
             if matches!(lit.node, rustc_ast::LitKind::Bool(false)));
 

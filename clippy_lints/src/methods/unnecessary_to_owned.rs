@@ -1,6 +1,6 @@
 use super::implicit_clone::is_clone_like;
 use super::unnecessary_iter_cloned::{self, is_into_iter};
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_opt;
 use clippy_utils::ty::{get_iterator_item_ty, implements_trait, is_copy, peel_mid_ty_refs};
@@ -30,7 +30,6 @@ pub fn check<'tcx>(
     method_name: Symbol,
     receiver: &'tcx Expr<'_>,
     args: &'tcx [Expr<'_>],
-    msrv: &Msrv,
 ) {
     if let Some(method_def_id) = cx.typeck_results().type_dependent_def_id(expr.hir_id)
         && args.is_empty()
@@ -45,7 +44,7 @@ pub fn check<'tcx>(
             if check_addr_of_expr(cx, expr, method_name, method_def_id, receiver) {
                 return;
             }
-            if check_into_iter_call_arg(cx, expr, method_name, receiver, msrv) {
+            if check_into_iter_call_arg(cx, expr, method_name, receiver) {
                 return;
             }
             check_other_call_arg(cx, expr, method_name, receiver);
@@ -193,13 +192,7 @@ fn check_addr_of_expr(
 
 /// Checks whether `expr` is an argument in an `into_iter` call and, if so, determines whether its
 /// call of a `to_owned`-like function is unnecessary.
-fn check_into_iter_call_arg(
-    cx: &LateContext<'_>,
-    expr: &Expr<'_>,
-    method_name: Symbol,
-    receiver: &Expr<'_>,
-    msrv: &Msrv,
-) -> bool {
+fn check_into_iter_call_arg(cx: &LateContext<'_>, expr: &Expr<'_>, method_name: Symbol, receiver: &Expr<'_>) -> bool {
     if let Some(parent) = get_parent_expr(cx, expr)
         && let Some(callee_def_id) = fn_def_id(cx, parent)
         && is_into_iter(cx, callee_def_id)
@@ -212,7 +205,7 @@ fn check_into_iter_call_arg(
         if unnecessary_iter_cloned::check_for_loop_iter(cx, parent, method_name, receiver, true) {
             return true;
         }
-        let cloned_or_copied = if is_copy(cx, item_ty) && msrv.meets(msrvs::ITERATOR_COPIED) {
+        let cloned_or_copied = if is_copy(cx, item_ty) && meets_msrv(cx, msrvs::ITERATOR_COPIED) {
             "copied"
         } else {
             "cloned"

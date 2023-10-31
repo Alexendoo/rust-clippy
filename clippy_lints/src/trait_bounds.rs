@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::{span_lint_and_help, span_lint_and_sugg};
 use clippy_utils::source::{snippet, snippet_opt, snippet_with_applicability};
 use clippy_utils::{is_from_proc_macro, SpanlessEq, SpanlessHash};
@@ -89,13 +89,12 @@ declare_clippy_lint! {
 #[derive(Clone)]
 pub struct TraitBounds {
     max_trait_bounds: u64,
-    msrv: Msrv,
 }
 
 impl TraitBounds {
     #[must_use]
-    pub fn new(max_trait_bounds: u64, msrv: Msrv) -> Self {
-        Self { max_trait_bounds, msrv }
+    pub fn new(max_trait_bounds: u64) -> Self {
+        Self { max_trait_bounds }
     }
 }
 
@@ -220,23 +219,21 @@ impl<'tcx> LateLintPass<'tcx> for TraitBounds {
             }
         }
     }
+}
 
-    extract_msrv_attr!(LateContext);
+/// Is the given bound a `?Sized` bound, and is combining it (i.e. `T: X + ?Sized`) an error on
+/// this MSRV? See <https://github.com/rust-lang/rust-clippy/issues/8772> for details.
+fn cannot_combine_maybe_bound(cx: &LateContext<'_>, bound: &GenericBound<'_>) -> bool {
+    if let GenericBound::Trait(tr, TraitBoundModifier::Maybe) = bound
+        && !meets_msrv(cx, msrvs::MAYBE_BOUND_IN_WHERE)
+    {
+        cx.tcx.lang_items().get(LangItem::Sized) == tr.trait_ref.path.res.opt_def_id()
+    } else {
+        false
+    }
 }
 
 impl TraitBounds {
-    /// Is the given bound a `?Sized` bound, and is combining it (i.e. `T: X + ?Sized`) an error on
-    /// this MSRV? See <https://github.com/rust-lang/rust-clippy/issues/8772> for details.
-    fn cannot_combine_maybe_bound(&self, cx: &LateContext<'_>, bound: &GenericBound<'_>) -> bool {
-        if !self.msrv.meets(msrvs::MAYBE_BOUND_IN_WHERE)
-            && let GenericBound::Trait(tr, TraitBoundModifier::Maybe) = bound
-        {
-            cx.tcx.lang_items().get(LangItem::Sized) == tr.trait_ref.path.res.opt_def_id()
-        } else {
-            false
-        }
-    }
-
     fn check_type_repetition<'tcx>(&self, cx: &LateContext<'tcx>, gen: &'tcx Generics<'_>) {
         struct SpanlessTy<'cx, 'tcx> {
             ty: &'tcx Ty<'tcx>,
@@ -270,7 +267,7 @@ impl TraitBounds {
                 && let bounds = p
                     .bounds
                     .iter()
-                    .filter(|b| !self.cannot_combine_maybe_bound(cx, b))
+                    .filter(|b| !cannot_combine_maybe_bound(cx, b))
                     .collect::<Vec<_>>()
                 && !bounds.is_empty()
                 && let Some(ref v) = map.insert(SpanlessTy { ty: p.bounded_ty, cx }, bounds)

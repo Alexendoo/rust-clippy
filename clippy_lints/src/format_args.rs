@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::{span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::is_diag_trait_item;
 use clippy_utils::macros::{
@@ -169,15 +169,13 @@ impl_lint_pass!(FormatArgs => [
 ]);
 
 pub struct FormatArgs {
-    msrv: Msrv,
     ignore_mixed: bool,
 }
 
 impl FormatArgs {
     #[must_use]
-    pub fn new(msrv: Msrv, allow_mixed_uninlined_format_args: bool) -> Self {
+    pub fn new(allow_mixed_uninlined_format_args: bool) -> Self {
         Self {
-            msrv,
             ignore_mixed: allow_mixed_uninlined_format_args,
         }
     }
@@ -213,13 +211,11 @@ impl<'tcx> LateLintPass<'tcx> for FormatArgs {
                 }
             }
 
-            if self.msrv.meets(msrvs::FORMAT_ARGS_CAPTURE) {
+            if meets_msrv(cx, msrvs::FORMAT_ARGS_CAPTURE) {
                 check_uninlined_args(cx, &format_args, macro_call.span, macro_call.def_id, self.ignore_mixed);
             }
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn check_unused_format_specifier(

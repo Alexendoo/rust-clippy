@@ -1,5 +1,5 @@
 use crate::question_mark::{QuestionMark, QUESTION_MARK};
-use clippy_config::msrvs;
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_config::types::MatchLintBehaviour;
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::higher::IfLetOrMatch;
@@ -49,7 +49,7 @@ declare_clippy_lint! {
 
 impl<'tcx> QuestionMark {
     pub(crate) fn check_manual_let_else(&mut self, cx: &LateContext<'tcx>, stmt: &'tcx Stmt<'tcx>) {
-        if !self.msrv.meets(msrvs::LET_ELSE) || in_external_macro(cx.sess(), stmt.span) {
+        if in_external_macro(cx.sess(), stmt.span) {
             return;
         }
 
@@ -59,6 +59,7 @@ impl<'tcx> QuestionMark {
             && local.ty.is_none()
             && init.span.eq_ctxt(stmt.span)
             && let Some(if_let_or_match) = IfLetOrMatch::parse(cx, init)
+            && meets_msrv(cx, msrvs::LET_ELSE)
         {
             match if_let_or_match {
                 IfLetOrMatch::IfLet(if_let_expr, let_pat, if_then, if_else) => {

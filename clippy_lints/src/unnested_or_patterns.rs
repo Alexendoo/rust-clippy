@@ -1,5 +1,6 @@
 #![allow(clippy::wildcard_imports, clippy::enum_glob_use)]
 
+use clippy_config::extract_msrv_attr;
 use clippy_config::msrvs::{self, Msrv};
 use clippy_utils::ast_utils::{eq_field_pat, eq_id, eq_maybe_qself, eq_pat, eq_path};
 use clippy_utils::diagnostics::span_lint_and_then;
@@ -61,13 +62,13 @@ impl_lint_pass!(UnnestedOrPatterns => [UNNESTED_OR_PATTERNS]);
 
 impl EarlyLintPass for UnnestedOrPatterns {
     fn check_arm(&mut self, cx: &EarlyContext<'_>, a: &ast::Arm) {
-        if self.msrv.meets(msrvs::OR_PATTERNS) {
+        if self.msrv.meets(cx, msrvs::OR_PATTERNS) {
             lint_unnested_or_patterns(cx, &a.pat);
         }
     }
 
     fn check_expr(&mut self, cx: &EarlyContext<'_>, e: &ast::Expr) {
-        if self.msrv.meets(msrvs::OR_PATTERNS) {
+        if self.msrv.meets(cx, msrvs::OR_PATTERNS) {
             if let ast::ExprKind::Let(pat, _, _, _) = &e.kind {
                 lint_unnested_or_patterns(cx, pat);
             }
@@ -75,18 +76,18 @@ impl EarlyLintPass for UnnestedOrPatterns {
     }
 
     fn check_param(&mut self, cx: &EarlyContext<'_>, p: &ast::Param) {
-        if self.msrv.meets(msrvs::OR_PATTERNS) {
+        if self.msrv.meets(cx, msrvs::OR_PATTERNS) {
             lint_unnested_or_patterns(cx, &p.pat);
         }
     }
 
     fn check_local(&mut self, cx: &EarlyContext<'_>, l: &ast::Local) {
-        if self.msrv.meets(msrvs::OR_PATTERNS) {
+        if self.msrv.meets(cx, msrvs::OR_PATTERNS) {
             lint_unnested_or_patterns(cx, &l.pat);
         }
     }
 
-    extract_msrv_attr!(EarlyContext);
+    extract_msrv_attr!();
 }
 
 fn lint_unnested_or_patterns(cx: &EarlyContext<'_>, pat: &Pat) {

@@ -1,3 +1,4 @@
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::ty::implements_trait;
 use clippy_utils::{is_expr_used_or_unified, match_def_path, paths};
@@ -32,6 +33,7 @@ pub(super) fn check<'tcx>(
         && args1.len() == 1
         && let ExprKind::Lit(lit) = args1[0].kind
         && let LitKind::Int(0, LitIntType::Unsuffixed) = lit.node
+        && meets_msrv(cx, msrvs::SEEK_REWIND)
     {
         let method_call_span = expr.span.with_lo(name_span.lo());
         span_lint_and_then(

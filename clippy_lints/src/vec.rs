@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet_with_applicability;
@@ -19,7 +19,6 @@ use rustc_span::{sym, Span};
 #[derive(Clone)]
 pub struct UselessVec {
     pub too_large_for_stack: u64,
-    pub msrv: Msrv,
 }
 
 declare_clippy_lint! {
@@ -122,15 +121,13 @@ impl<'tcx> LateLintPass<'tcx> for UselessVec {
         // search for `for _ in vec![…]`
         if let Some(higher::ForLoop { arg, .. }) = higher::ForLoop::hir(expr)
             && let Some(vec_args) = higher::VecArgs::hir(cx, arg)
-            && self.msrv.meets(msrvs::ARRAY_INTO_ITERATOR)
+            && meets_msrv(cx, msrvs::ARRAY_INTO_ITERATOR)
         {
             // report the error around the `vec!` not inside `<std macros>:`
             let span = arg.span.ctxt().outer_expn_data().call_site;
             self.check_vec_macro(cx, &vec_args, span, SuggestedType::Array);
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 #[derive(Copy, Clone)]

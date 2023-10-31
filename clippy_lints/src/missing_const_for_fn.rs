@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint;
 use clippy_utils::qualify_min_const_fn::is_min_const_fn;
 use clippy_utils::ty::has_drop;
@@ -9,7 +9,7 @@ use rustc_hir::intravisit::FnKind;
 use rustc_hir::{Body, Constness, FnDecl, GenericParamKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::lint::in_external_macro;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::Span;
 
@@ -71,18 +71,7 @@ declare_clippy_lint! {
     "Lint functions definitions that could be made `const fn`"
 }
 
-impl_lint_pass!(MissingConstForFn => [MISSING_CONST_FOR_FN]);
-
-pub struct MissingConstForFn {
-    msrv: Msrv,
-}
-
-impl MissingConstForFn {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
+declare_lint_pass!(MissingConstForFn => [MISSING_CONST_FOR_FN]);
 
 impl<'tcx> LateLintPass<'tcx> for MissingConstForFn {
     fn check_fn(
@@ -94,7 +83,7 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstForFn {
         span: Span,
         def_id: LocalDefId,
     ) {
-        if !self.msrv.meets(msrvs::CONST_IF_MATCH) {
+        if !meets_msrv(cx, msrvs::CONST_IF_MATCH) {
             return;
         }
 
@@ -151,7 +140,7 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstForFn {
 
         let mir = cx.tcx.optimized_mir(def_id);
 
-        if let Err((span, err)) = is_min_const_fn(cx.tcx, mir, &self.msrv) {
+        if let Err((span, err)) = is_min_const_fn(cx, mir) {
             if cx.tcx.is_const_fn_raw(def_id.to_def_id()) {
                 cx.tcx.sess.span_err(span, err);
             }
@@ -159,7 +148,6 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstForFn {
             span_lint(cx, MISSING_CONST_FOR_FN, span, "this could be a `const fn`");
         }
     }
-    extract_msrv_attr!(LateContext);
 }
 
 /// Returns true if any of the method parameters is a type that implements `Drop`. The method

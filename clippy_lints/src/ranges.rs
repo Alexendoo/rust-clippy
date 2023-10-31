@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::{span_lint, span_lint_and_sugg, span_lint_and_then};
 use clippy_utils::source::{snippet, snippet_opt, snippet_with_applicability};
@@ -9,7 +9,7 @@ use rustc_errors::Applicability;
 use rustc_hir::{BinOpKind, Expr, ExprKind, HirId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::source_map::Spanned;
 use rustc_span::Span;
 use std::cmp::Ordering;
@@ -159,18 +159,7 @@ declare_clippy_lint! {
     "manually reimplementing {`Range`, `RangeInclusive`}`::contains`"
 }
 
-pub struct Ranges {
-    msrv: Msrv,
-}
-
-impl Ranges {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(Ranges => [
+declare_lint_pass!(Ranges => [
     RANGE_PLUS_ONE,
     RANGE_MINUS_ONE,
     REVERSED_EMPTY_RANGES,
@@ -180,7 +169,7 @@ impl_lint_pass!(Ranges => [
 impl<'tcx> LateLintPass<'tcx> for Ranges {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
         if let ExprKind::Binary(ref op, l, r) = expr.kind {
-            if self.msrv.meets(msrvs::RANGE_CONTAINS) {
+            if meets_msrv(cx, msrvs::RANGE_CONTAINS) {
                 check_possible_range_contains(cx, op.node, l, r, expr, expr.span);
             }
         }
@@ -189,7 +178,6 @@ impl<'tcx> LateLintPass<'tcx> for Ranges {
         check_inclusive_range_minus_one(cx, expr);
         check_reversed_empty_range(cx, expr);
     }
-    extract_msrv_attr!(LateContext);
 }
 
 fn check_possible_range_contains(

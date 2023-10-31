@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::visitors::for_each_local_use_after_expr;
 use clippy_utils::{is_from_proc_macro, path_to_local};
@@ -8,7 +8,7 @@ use rustc_hir::{Expr, ExprKind, Node, PatKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
 use rustc_middle::ty::{self, Ty};
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use std::iter::once;
 use std::ops::ControlFlow;
 
@@ -40,16 +40,12 @@ declare_clippy_lint! {
     nursery,
     "checks for tuple<=>array conversions that are not done with `.into()`"
 }
-impl_lint_pass!(TupleArrayConversions => [TUPLE_ARRAY_CONVERSIONS]);
 
-#[derive(Clone)]
-pub struct TupleArrayConversions {
-    pub msrv: Msrv,
-}
+declare_lint_pass!(TupleArrayConversions => [TUPLE_ARRAY_CONVERSIONS]);
 
 impl LateLintPass<'_> for TupleArrayConversions {
     fn check_expr<'tcx>(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if in_external_macro(cx.sess(), expr.span) || !self.msrv.meets(msrvs::TUPLE_ARRAY_CONVERSIONS) {
+        if in_external_macro(cx.sess(), expr.span) || !meets_msrv(cx, msrvs::TUPLE_ARRAY_CONVERSIONS) {
             return;
         }
 
@@ -59,8 +55,6 @@ impl LateLintPass<'_> for TupleArrayConversions {
             _ => {},
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn check_array<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>, elements: &'tcx [Expr<'tcx>]) {

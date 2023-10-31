@@ -626,10 +626,15 @@ fn extend_vec_if_indicator_present(vec: &mut Vec<String>, default: &[&str]) {
     }
 }
 
+static CONF: OnceLock<Conf> = OnceLock::new();
+
 impl Conf {
     pub fn read(sess: &Session, path: &io::Result<(Option<PathBuf>, Vec<String>)>) -> &'static Conf {
-        static CONF: OnceLock<Conf> = OnceLock::new();
         CONF.get_or_init(|| Conf::read_inner(sess, path))
+    }
+
+    pub(crate) fn get() -> &'static Conf {
+        CONF.get().unwrap()
     }
 
     fn read_inner(sess: &Session, path: &io::Result<(Option<PathBuf>, Vec<String>)>) -> Conf {

@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::macros::root_macro_call;
 use clippy_utils::sugg::Sugg;
@@ -8,7 +8,7 @@ use rustc_ast::LitKind::{Byte, Char};
 use rustc_errors::Applicability;
 use rustc_hir::{BorrowKind, Expr, ExprKind, PatKind, RangeEnd};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::DefId;
 use rustc_span::{sym, Span};
 
@@ -55,18 +55,8 @@ declare_clippy_lint! {
     style,
     "use dedicated method to check ascii range"
 }
-impl_lint_pass!(ManualIsAsciiCheck => [MANUAL_IS_ASCII_CHECK]);
 
-pub struct ManualIsAsciiCheck {
-    msrv: Msrv,
-}
-
-impl ManualIsAsciiCheck {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
+declare_lint_pass!(ManualIsAsciiCheck => [MANUAL_IS_ASCII_CHECK]);
 
 #[derive(Debug, PartialEq)]
 enum CharRange {
@@ -89,11 +79,11 @@ enum CharRange {
 
 impl<'tcx> LateLintPass<'tcx> for ManualIsAsciiCheck {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
-        if !self.msrv.meets(msrvs::IS_ASCII_DIGIT) {
+        if !meets_msrv(cx, msrvs::IS_ASCII_DIGIT) {
             return;
         }
 
-        if in_constant(cx, expr.hir_id) && !self.msrv.meets(msrvs::IS_ASCII_DIGIT_CONST) {
+        if in_constant(cx, expr.hir_id) && !meets_msrv(cx, msrvs::IS_ASCII_DIGIT_CONST) {
             return;
         }
 
@@ -120,8 +110,6 @@ impl<'tcx> LateLintPass<'tcx> for ManualIsAsciiCheck {
             }
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn check_is_ascii(cx: &LateContext<'_>, span: Span, recv: &Expr<'_>, range: &CharRange) {

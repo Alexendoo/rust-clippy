@@ -1,3 +1,4 @@
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::is_no_std_crate;
 use clippy_utils::source::snippet_with_context;
@@ -16,6 +17,7 @@ pub(super) fn check<'tcx>(
 ) {
     if matches!(cast_to.kind, TyKind::Ptr(_))
         && let ExprKind::AddrOf(BorrowKind::Ref, mutability, e) = cast_expr.kind
+        && meets_msrv(cx, msrvs::BORROW_AS_PTR)
     {
         let core_or_std = if is_no_std_crate(cx) { "core" } else { "std" };
         let macro_name = match mutability {

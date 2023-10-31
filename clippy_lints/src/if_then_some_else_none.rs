@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_help;
 use clippy_utils::eager_or_lazy::switch_to_eager_eval;
 use clippy_utils::source::snippet_with_context;
@@ -9,7 +9,7 @@ use rustc_hir::LangItem::{OptionNone, OptionSome};
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 
 declare_clippy_lint! {
     /// ### What it does
@@ -46,25 +46,10 @@ declare_clippy_lint! {
     "Finds if-else that could be written using either `bool::then` or `bool::then_some`"
 }
 
-pub struct IfThenSomeElseNone {
-    msrv: Msrv,
-}
-
-impl IfThenSomeElseNone {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        Self { msrv }
-    }
-}
-
-impl_lint_pass!(IfThenSomeElseNone => [IF_THEN_SOME_ELSE_NONE]);
+declare_lint_pass!(IfThenSomeElseNone => [IF_THEN_SOME_ELSE_NONE]);
 
 impl<'tcx> LateLintPass<'tcx> for IfThenSomeElseNone {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if !self.msrv.meets(msrvs::BOOL_THEN) {
-            return;
-        }
-
         if in_external_macro(cx.sess(), expr.span) {
             return;
         }
@@ -99,11 +84,13 @@ impl<'tcx> LateLintPass<'tcx> for IfThenSomeElseNone {
             } else {
                 format!("{{ /* snippet */ {arg_snip} }}")
             };
-            let method_name = if switch_to_eager_eval(cx, expr) && self.msrv.meets(msrvs::BOOL_THEN_SOME) {
+            let method_name = if switch_to_eager_eval(cx, expr) && meets_msrv(cx, msrvs::BOOL_THEN_SOME) {
                 "then_some"
-            } else {
+            } else if meets_msrv(cx, msrvs::BOOL_THEN) {
                 method_body.insert_str(0, "|| ");
                 "then"
+            } else {
+                return;
             };
 
             let help =
@@ -118,6 +105,4 @@ impl<'tcx> LateLintPass<'tcx> for IfThenSomeElseNone {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }

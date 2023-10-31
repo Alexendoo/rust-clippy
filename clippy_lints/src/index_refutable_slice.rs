@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::consts::{constant, Constant};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::higher::IfLet;
@@ -53,14 +53,12 @@ declare_clippy_lint! {
 
 pub struct IndexRefutableSlice {
     max_suggested_slice: u64,
-    msrv: Msrv,
 }
 
 impl IndexRefutableSlice {
-    pub fn new(max_suggested_slice_pattern_length: u64, msrv: Msrv) -> Self {
+    pub fn new(max_suggested_slice_pattern_length: u64) -> Self {
         Self {
             max_suggested_slice: max_suggested_slice_pattern_length,
-            msrv,
         }
     }
 }
@@ -72,7 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for IndexRefutableSlice {
         if (!expr.span.from_expansion() || is_expn_of(expr.span, "if_chain").is_some())
             && let Some(IfLet { let_pat, if_then, .. }) = IfLet::hir(cx, expr)
             && !is_lint_allowed(cx, INDEX_REFUTABLE_SLICE, expr.hir_id)
-            && self.msrv.meets(msrvs::SLICE_PATTERNS)
+            && meets_msrv(cx, msrvs::SLICE_PATTERNS)
             && let found_slices = find_slice_values(cx, let_pat)
             && !found_slices.is_empty()
             && let filtered_slices = filter_lintable_slices(cx, found_slices, self.max_suggested_slice, if_then)
@@ -83,8 +81,6 @@ impl<'tcx> LateLintPass<'tcx> for IndexRefutableSlice {
             }
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 fn find_slice_values(cx: &LateContext<'_>, pat: &hir::Pat<'_>) -> FxIndexMap<hir::HirId, SliceLintInformation> {

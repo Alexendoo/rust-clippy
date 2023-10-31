@@ -1,4 +1,4 @@
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_then;
 use clippy_utils::macros::span_is_local;
 use clippy_utils::path_def_id;
@@ -12,7 +12,7 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter::OnlyBodies;
 use rustc_middle::ty;
-use rustc_session::{declare_tool_lint, impl_lint_pass};
+use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::symbol::{kw, sym};
 use rustc_span::{Span, Symbol};
 
@@ -49,22 +49,11 @@ declare_clippy_lint! {
     "Warns on implementations of `Into<..>` to use `From<..>`"
 }
 
-pub struct FromOverInto {
-    msrv: Msrv,
-}
-
-impl FromOverInto {
-    #[must_use]
-    pub fn new(msrv: Msrv) -> Self {
-        FromOverInto { msrv }
-    }
-}
-
-impl_lint_pass!(FromOverInto => [FROM_OVER_INTO]);
+declare_lint_pass!(FromOverInto => [FROM_OVER_INTO]);
 
 impl<'tcx> LateLintPass<'tcx> for FromOverInto {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'_>) {
-        if !self.msrv.meets(msrvs::RE_REBALANCING_COHERENCE) || !span_is_local(item.span) {
+        if !span_is_local(item.span) {
             return;
         }
 
@@ -81,6 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for FromOverInto {
                                                   .map(ty::EarlyBinder::instantiate_identity)
             && cx.tcx.is_diagnostic_item(sym::Into, middle_trait_ref.def_id)
             && !matches!(middle_trait_ref.args.type_at(1).kind(), ty::Alias(ty::Opaque, _))
+            && meets_msrv(cx, msrvs::RE_REBALANCING_COHERENCE)
         {
             span_lint_and_then(
                 cx,
@@ -110,8 +100,6 @@ impl<'tcx> LateLintPass<'tcx> for FromOverInto {
             );
         }
     }
-
-    extract_msrv_attr!(LateContext);
 }
 
 /// Finds the occurrences of `Self` and `self`

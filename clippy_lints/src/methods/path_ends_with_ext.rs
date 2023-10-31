@@ -1,5 +1,5 @@
 use super::PATH_ENDS_WITH_EXT;
-use clippy_config::msrvs::{self, Msrv};
+use clippy_config::msrvs::{self, meets_msrv};
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet;
 use clippy_utils::ty::is_type_diagnostic_item;
@@ -20,7 +20,6 @@ pub(super) fn check(
     recv: &Expr<'_>,
     path: &Expr<'_>,
     expr: &Expr<'_>,
-    msrv: &Msrv,
     allowed_dotfiles: &FxHashSet<String>,
 ) {
     if is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(recv).peel_refs(), sym::Path)
@@ -33,7 +32,7 @@ pub(super) fn check(
         && path.chars().all(char::is_alphanumeric)
     {
         let mut sugg = snippet(cx, recv.span, "..").into_owned();
-        if msrv.meets(msrvs::OPTION_IS_SOME_AND) {
+        if meets_msrv(cx, msrvs::OPTION_IS_SOME_AND) {
             let _ = write!(sugg, r#".extension().is_some_and(|ext| ext == "{path}")"#);
         } else {
             let _ = write!(sugg, r#".extension().map_or(false, |ext| ext == "{path}")"#);

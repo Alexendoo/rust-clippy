@@ -121,21 +121,6 @@ use crate::visitors::for_each_expr;
 
 use rustc_middle::hir::nested_filter;
 
-#[macro_export]
-macro_rules! extract_msrv_attr {
-    ($context:ident) => {
-        fn enter_lint_attrs(&mut self, cx: &rustc_lint::$context<'_>, attrs: &[rustc_ast::ast::Attribute]) {
-            let sess = rustc_lint::LintContext::sess(cx);
-            self.msrv.enter_lint_attrs(sess, attrs);
-        }
-
-        fn exit_lint_attrs(&mut self, cx: &rustc_lint::$context<'_>, attrs: &[rustc_ast::ast::Attribute]) {
-            let sess = rustc_lint::LintContext::sess(cx);
-            self.msrv.exit_lint_attrs(sess, attrs);
-        }
-    };
-}
-
 /// If the given expression is a local binding, find the initializer expression.
 /// If that initializer expression is another local binding, find its initializer again.
 /// This process repeats as long as possible (but usually no more than once). Initializer
