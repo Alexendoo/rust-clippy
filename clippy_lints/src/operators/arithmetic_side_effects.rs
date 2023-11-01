@@ -12,7 +12,7 @@ use rustc_span::symbol::sym;
 use rustc_span::{Span, Symbol};
 use {rustc_ast as ast, rustc_hir as hir};
 
-const HARD_CODED_ALLOWED_BINARY: &[[&str; 2]] = &[["f32", "f32"], ["f64", "f64"], ["std::string::String", "str"]];
+const HARD_CODED_ALLOWED_BINARY: &[(&str, &str)] = &[("f32", "f32"), ("f64", "f64"), ("std::string::String", "str")];
 const HARD_CODED_ALLOWED_UNARY: &[&str] = &["f32", "f64", "std::num::Saturating", "std::num::Wrapping"];
 const INTEGER_METHODS: &[Symbol] = &[
     sym::saturating_div,
@@ -35,13 +35,13 @@ impl_lint_pass!(ArithmeticSideEffects => [ARITHMETIC_SIDE_EFFECTS]);
 
 impl ArithmeticSideEffects {
     #[must_use]
-    pub fn new(user_allowed_binary: Vec<[String; 2]>, user_allowed_unary: Vec<String>) -> Self {
+    pub fn new(user_allowed_binary: Vec<(String, String)>, user_allowed_unary: Vec<String>) -> Self {
         let mut allowed_binary: FxHashMap<String, FxHashSet<String>> = <_>::default();
-        for [lhs, rhs] in user_allowed_binary.into_iter().chain(
+        for (lhs, rhs) in user_allowed_binary.into_iter().chain(
             HARD_CODED_ALLOWED_BINARY
                 .iter()
                 .copied()
-                .map(|[lhs, rhs]| [lhs.to_string(), rhs.to_string()]),
+                .map(|(lhs, rhs)| (lhs.to_string(), rhs.to_string())),
         ) {
             allowed_binary.entry(lhs).or_default().insert(rhs);
         }

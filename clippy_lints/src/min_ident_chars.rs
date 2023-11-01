@@ -1,6 +1,5 @@
 use clippy_utils::diagnostics::span_lint;
 use clippy_utils::is_from_proc_macro;
-use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::intravisit::{walk_item, Visitor};
 use rustc_hir::{GenericParamKind, HirId, Item, ItemKind, ItemLocalId, Node, Pat, PatKind};
@@ -9,6 +8,7 @@ use rustc_middle::lint::in_external_macro;
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::Span;
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -42,7 +42,7 @@ impl_lint_pass!(MinIdentChars => [MIN_IDENT_CHARS]);
 
 #[derive(Clone)]
 pub struct MinIdentChars {
-    pub allowed_idents_below_min_chars: FxHashSet<String>,
+    pub allowed_idents_below_min_chars: BTreeSet<String>,
     pub min_ident_chars_threshold: u64,
 }
 

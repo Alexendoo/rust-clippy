@@ -1,6 +1,7 @@
+use std::collections::BTreeSet;
+
 use clippy_utils::diagnostics::span_lint;
 use clippy_utils::source::snippet_opt;
-use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, CRATE_DEF_INDEX};
 use rustc_hir::{HirId, ItemKind, Node, Path};
@@ -47,7 +48,7 @@ impl_lint_pass!(AbsolutePaths => [ABSOLUTE_PATHS]);
 
 pub struct AbsolutePaths {
     pub absolute_paths_max_segments: u64,
-    pub absolute_paths_allowed_crates: FxHashSet<String>,
+    pub absolute_paths_allowed_crates: BTreeSet<String>,
 }
 
 impl LateLintPass<'_> for AbsolutePaths {

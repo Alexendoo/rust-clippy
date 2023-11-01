@@ -1,14 +1,15 @@
+use rustc_macros::HashStable_Generic;
 use serde::de::{self, Deserializer, Visitor};
 use serde::{ser, Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, HashStable_Generic)]
 pub struct Rename {
     pub path: String,
     pub rename: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, HashStable_Generic)]
 #[serde(untagged)]
 pub enum DisallowedPath {
     Simple(String),
@@ -32,14 +33,14 @@ impl DisallowedPath {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, HashStable_Generic)]
 pub enum MatchLintBehaviour {
     AllTypes,
     WellKnownTypes,
     Never,
 }
 
-#[derive(Debug)]
+#[derive(Debug, HashStable_Generic)]
 pub struct MacroMatcher {
     pub name: String,
     pub braces: (char, char),

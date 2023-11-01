@@ -1,4 +1,5 @@
 use rustc_ast::Attribute;
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher};
 use rustc_lint::{EarlyContext, LateContext, LintContext};
 use rustc_semver::RustcVersion;
 use rustc_session::Session;
@@ -73,6 +74,13 @@ pub fn meets_msrv(cx: &LateContext<'_>, required: RustcVersion) -> bool {
 #[derive(Debug, Clone)]
 pub struct Msrv {
     stack: Vec<RustcVersion>,
+}
+
+impl<CTX> HashStable<CTX> for Msrv {
+    fn hash_stable(&self, hcx: &mut CTX, hasher: &mut StableHasher) {
+        // TODO: impl Hash for RustcVersion
+        format!("{self:?}").hash_stable(hcx, hasher);
+    }
 }
 
 impl<'de> Deserialize<'de> for Msrv {

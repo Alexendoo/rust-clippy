@@ -613,7 +613,7 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
         Box::new(operators::arithmetic_side_effects::ArithmeticSideEffects::new(
             arithmetic_side_effects_allowed
                 .iter()
-                .flat_map(|el| [[el.clone(), "*".to_string()], ["*".to_string(), el.clone()]])
+                .flat_map(|el| [(el.clone(), "*".to_string()), ("*".to_string(), el.clone())])
                 .chain(arithmetic_side_effects_allowed_binary.clone())
                 .collect(),
             arithmetic_side_effects_allowed
@@ -670,7 +670,7 @@ pub fn register_lints(store: &mut rustc_lint::LintStore, conf: &'static Conf) {
             avoid_breaking_exported_api,
             allow_expect_in_tests,
             allow_unwrap_in_tests,
-            allowed_dotfiles.clone(),
+            allowed_dotfiles,
         ))
     });
     store.register_late_pass(move |_| Box::new(matches::Matches::new()));

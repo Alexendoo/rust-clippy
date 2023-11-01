@@ -1,11 +1,12 @@
 use crate::msrvs::Msrv;
 use crate::types::{DisallowedPath, MacroMatcher, MatchLintBehaviour, Rename};
 use crate::ClippyConfiguration;
-use rustc_data_structures::fx::FxHashSet;
+use rustc_macros::HashStable_Generic;
 use rustc_session::Session;
 use rustc_span::{BytePos, Pos, SourceFile, Span, SyntaxContext};
 use serde::de::{IgnoredAny, IntoDeserializer, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::BTreeSet;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 use std::path::PathBuf;
@@ -109,6 +110,7 @@ macro_rules! define_Conf {
         ($name:ident: $ty:ty = $default:expr),
     )*) => {
         /// Clippy lint configuration
+        #[derive(HashStable_Generic)]
         pub struct Conf {
             $($(#[doc = $doc])+ pub $name: $ty,)*
         }
@@ -217,7 +219,7 @@ define_Conf! {
     ///
     /// A type, say `SomeType`, listed in this configuration has the same behavior of
     /// `["SomeType" , "*"], ["*", "SomeType"]` in `arithmetic_side_effects_allowed_binary`.
-    (arithmetic_side_effects_allowed: FxHashSet<String> = <_>::default()),
+    (arithmetic_side_effects_allowed: BTreeSet<String> = <_>::default()),
     /// Lint: ARITHMETIC_SIDE_EFFECTS.
     ///
     /// Suppress checking of the passed type pair names in binary operations like addition or
@@ -234,7 +236,7 @@ define_Conf! {
     /// ```toml
     /// arithmetic-side-effects-allowed-binary = [["SomeType" , "f32"], ["AnotherType", "*"]]
     /// ```
-    (arithmetic_side_effects_allowed_binary: Vec<[String; 2]> = <_>::default()),
+    (arithmetic_side_effects_allowed_binary: Vec<(String, String)> = <_>::default()),
     /// Lint: ARITHMETIC_SIDE_EFFECTS.
     ///
     /// Suppress checking of the passed type names in unary operations like "negation" (`-`).
@@ -244,7 +246,7 @@ define_Conf! {
     /// ```toml
     /// arithmetic-side-effects-allowed-unary = ["SomeType", "AnotherType"]
     /// ```
-    (arithmetic_side_effects_allowed_unary: FxHashSet<String> = <_>::default()),
+    (arithmetic_side_effects_allowed_unary: BTreeSet<String> = <_>::default()),
     /// Lint: ENUM_VARIANT_NAMES, LARGE_TYPES_PASSED_BY_VALUE, TRIVIALLY_COPY_PASS_BY_REF, UNNECESSARY_WRAPS, UNUSED_SELF, UPPER_CASE_ACRONYMS, WRONG_SELF_CONVENTION, BOX_COLLECTION, REDUNDANT_ALLOCATION, RC_BUFFER, VEC_BOX, OPTION_OPTION, LINKEDLIST, RC_MUTEX, UNNECESSARY_BOX_RETURNS, SINGLE_CALL_FN.
     ///
     /// Suppress lints whenever the suggested change would cause breakage for other crates.
@@ -492,7 +494,7 @@ define_Conf! {
     /// Allowed names below the minimum allowed characters. The value `".."` can be used as part of
     /// the list to indicate, that the configured values should be appended to the default
     /// configuration of Clippy. By default, any configuration will replace the default value.
-    (allowed_idents_below_min_chars: FxHashSet<String> =
+    (allowed_idents_below_min_chars: BTreeSet<String> =
         DEFAULT_ALLOWED_IDENTS_BELOW_MIN_CHARS.iter().map(ToString::to_string).collect()),
     /// Lint: MIN_IDENT_CHARS.
     ///
@@ -518,11 +520,11 @@ define_Conf! {
     /// Lint: ABSOLUTE_PATHS.
     ///
     /// Which crates to allow absolute paths from
-    (absolute_paths_allowed_crates: FxHashSet<String> = FxHashSet::default()),
+    (absolute_paths_allowed_crates: BTreeSet<String> = BTreeSet::new()),
     /// Lint: PATH_ENDS_WITH_EXT.
     ///
     /// Additional dotfiles (files or directories starting with a dot) to allow
-    (allowed_dotfiles: FxHashSet<String> = FxHashSet::default()),
+    (allowed_dotfiles: Vec<String> = Vec::new()),
     /// Lint: EXPLICIT_ITER_LOOP
     ///
     /// Whether to recommend using implicit into iter for reborrowed values.
@@ -554,7 +556,7 @@ define_Conf! {
 /// # Errors
 ///
 /// Returns any unexpected filesystem error encountered when searching for the config file
-pub fn lookup_conf_file() -> io::Result<(Option<PathBuf>, Vec<String>)> {
+fn lookup_conf_file() -> io::Result<(Option<PathBuf>, Vec<String>)> {
     /// Possible filename to search for.
     const CONFIG_FILE_NAMES: [&str; 2] = [".clippy.toml", "clippy.toml"];
 
@@ -629,16 +631,18 @@ fn extend_vec_if_indicator_present(vec: &mut Vec<String>, default: &[&str]) {
 static CONF: OnceLock<Conf> = OnceLock::new();
 
 impl Conf {
-    pub fn read(sess: &Session, path: &io::Result<(Option<PathBuf>, Vec<String>)>) -> &'static Conf {
-        CONF.get_or_init(|| Conf::read_inner(sess, path))
+    pub fn read(sess: &Session) -> &'static Conf {
+        CONF.get_or_init(|| Conf::read_inner(sess))
     }
 
     pub(crate) fn get() -> &'static Conf {
         CONF.get().unwrap()
     }
 
-    fn read_inner(sess: &Session, path: &io::Result<(Option<PathBuf>, Vec<String>)>) -> Conf {
-        match path {
+    fn read_inner(sess: &Session) -> Conf {
+        let path = lookup_conf_file();
+
+        match &path {
             Ok((_, warnings)) => {
                 for warning in warnings {
                     sess.warn(warning.clone());
@@ -654,7 +658,7 @@ impl Conf {
             errors,
             warnings,
         } = match path {
-            Ok((Some(path), _)) => match sess.source_map().load_file(path) {
+            Ok((Some(path), _)) => match sess.source_map().load_file(&path) {
                 Ok(file) => deserialize(&file),
                 Err(error) => {
                     sess.err(format!("failed to read `{}`: {error}", path.display()));
@@ -760,14 +764,14 @@ fn calculate_dimensions(fields: &[&str]) -> (usize, Vec<usize>) {
 
 #[cfg(test)]
 mod tests {
-    use rustc_data_structures::fx::{FxHashMap, FxHashSet};
     use serde::de::IgnoredAny;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use walkdir::WalkDir;
 
     #[test]
     fn configs_are_tested() {
-        let mut names: FxHashSet<String> = crate::get_configuration_metadata()
+        let mut names: BTreeSet<String> = crate::get_configuration_metadata()
             .into_iter()
             .map(|meta| meta.name.replace('_', "-"))
             .collect();
@@ -780,7 +784,7 @@ mod tests {
         for entry in toml_files {
             let file = fs::read_to_string(entry.path()).unwrap();
             #[allow(clippy::zero_sized_map_values)]
-            if let Ok(map) = toml::from_str::<FxHashMap<String, IgnoredAny>>(&file) {
+            if let Ok(map) = toml::from_str::<BTreeMap<String, IgnoredAny>>(&file) {
                 for name in map.keys() {
                     names.remove(name.as_str());
                 }

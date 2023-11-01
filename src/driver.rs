@@ -10,21 +10,24 @@
 
 // FIXME: switch to something more ergonomic here, once available.
 // (Currently there is no way to opt into sysroot crates without `extern crate`.)
+extern crate rustc_data_structures;
 extern crate rustc_driver;
 extern crate rustc_interface;
 extern crate rustc_session;
 extern crate rustc_span;
 
+use rustc_data_structures::stable_hasher::HashStable;
 use rustc_interface::interface;
 use rustc_session::config::ErrorOutputType;
 use rustc_session::parse::ParseSess;
 use rustc_session::EarlyErrorHandler;
 use rustc_span::symbol::Symbol;
 
-use std::env;
 use std::ops::Deref;
 use std::path::Path;
 use std::process::exit;
+use std::time::UNIX_EPOCH;
+use std::{env, fs};
 
 use anstream::println;
 
@@ -126,7 +129,6 @@ impl rustc_driver::Callbacks for ClippyCallbacks {
     // JUSTIFICATION: necessary in clippy driver to set `mir_opt_level`
     #[allow(rustc::bad_opt_access)]
     fn config(&mut self, config: &mut interface::Config) {
-        let conf_path = clippy_config::lookup_conf_file();
         let previous = config.register_lints.take();
         let clippy_args_var = self.clippy_args_var.take();
         config.parse_sess_created = Some(Box::new(move |parse_sess| {
@@ -140,6 +142,23 @@ impl rustc_driver::Callbacks for ClippyCallbacks {
                 env::var("CLIPPY_CONF_DIR").ok().map(|dir| Symbol::intern(&dir)),
             ));
         }));
+        config.hash_untracked_state = Some(Box::new(move |sess, hasher| {
+            // Invalidate the incremental cache if the clippy configuration changes between runs, this is needed
+            // for lints registered using `register_late_mod_pass` as they have their results incrementally
+            // cached
+            clippy_config::Conf::read(sess).hash_stable(&mut (), hasher);
+
+            // During development also invalidate any time clippy is rebuilt
+            if cfg!(debug_assertions) {
+                let exe_path = env::current_exe().unwrap();
+                let modified = fs::metadata(exe_path).unwrap().modified().unwrap();
+                modified
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+                    .hash_stable(&mut (), hasher);
+            }
+        }));
         config.register_lints = Some(Box::new(move |sess, lint_store| {
             // technically we're ~guaranteed that this is none but might as well call anything that
             // is there already. Certainly it can't hurt.
@@ -147,7 +166,7 @@ impl rustc_driver::Callbacks for ClippyCallbacks {
                 (previous)(sess, lint_store);
             }
 
-            let conf = clippy_config::Conf::read(sess, &conf_path);
+            let conf = clippy_config::Conf::read(sess);
             clippy_lints::register_lints(lint_store, conf);
             clippy_lints::register_pre_expansion_lints(lint_store, conf);
             clippy_lints::register_renamed(lint_store);

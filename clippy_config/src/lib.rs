@@ -12,6 +12,7 @@ extern crate rustc_data_structures;
 #[allow(unused_extern_crates)]
 extern crate rustc_driver;
 extern crate rustc_lint;
+extern crate rustc_macros;
 extern crate rustc_session;
 extern crate rustc_span;
 
@@ -20,8 +21,11 @@ mod metadata;
 pub mod msrvs;
 pub mod types;
 
-pub use conf::{get_configuration_metadata, lookup_conf_file, Conf};
+pub use conf::{get_configuration_metadata, Conf};
 pub use metadata::ClippyConfiguration;
+
+trait HashStableContext {}
+impl HashStableContext for () {}
 
 #[macro_export]
 macro_rules! extract_msrv_attr {

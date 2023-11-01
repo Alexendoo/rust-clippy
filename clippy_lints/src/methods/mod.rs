@@ -3739,8 +3739,10 @@ impl Methods {
         avoid_breaking_exported_api: bool,
         allow_expect_in_tests: bool,
         allow_unwrap_in_tests: bool,
-        mut allowed_dotfiles: FxHashSet<String>,
+        conf_allowed_dotfiles: &[String],
     ) -> Self {
+        let mut allowed_dotfiles = FxHashSet::default();
+        allowed_dotfiles.extend(conf_allowed_dotfiles.iter().cloned());
         allowed_dotfiles.extend(DEFAULT_ALLOWED_DOTFILES.iter().map(ToString::to_string));
 
         Self {
