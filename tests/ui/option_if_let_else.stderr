@@ -272,6 +272,23 @@ error: use Option::map_or instead of an if let/else
 LL |     let _ = if let Ok(a) = res { a + 1 } else { 5 };
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `res.map_or(5, |a| a + 1)`
 
+error: use Option::map_or_else instead of an if let/else
+  --> $DIR/option_if_let_else.rs:283:24
+   |
+LL |       let mut _hashmap = if let Some(hm) = &opt {
+   |  ________________________^
+LL | |         hm.clone()
+LL | |     } else {
+LL | |         HashMap::new()
+LL | |     };
+   | |_____^ help: try: `opt.as_ref().map_or_else(HashMap::new, |hm| hm.clone())`
+
+error: use Option::map_or_else instead of an if let/else
+  --> $DIR/option_if_let_else.rs:289:19
+   |
+LL |     let mut _hm = if let Some(hm) = &opt { hm.clone() } else { new_map!() };
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `opt.as_ref().map_or_else(|| new_map!(), |hm| hm.clone())`
+
 error: use Option::map_or instead of an if let/else
   --> $DIR/option_if_let_else.rs:257:9
    |
@@ -289,23 +306,6 @@ LL | |             Some(value) => do_something2(value),
 LL | |             None => {},
 LL | |         }
    | |_________^ help: try: `initial.as_mut().map_or({}, |value| do_something2(value))`
-
-error: use Option::map_or_else instead of an if let/else
-  --> $DIR/option_if_let_else.rs:283:24
-   |
-LL |       let mut _hashmap = if let Some(hm) = &opt {
-   |  ________________________^
-LL | |         hm.clone()
-LL | |     } else {
-LL | |         HashMap::new()
-LL | |     };
-   | |_____^ help: try: `opt.as_ref().map_or_else(HashMap::new, |hm| hm.clone())`
-
-error: use Option::map_or_else instead of an if let/else
-  --> $DIR/option_if_let_else.rs:289:19
-   |
-LL |     let mut _hm = if let Some(hm) = &opt { hm.clone() } else { new_map!() };
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `opt.as_ref().map_or_else(|| new_map!(), |hm| hm.clone())`
 
 error: aborting due to 25 previous errors
 

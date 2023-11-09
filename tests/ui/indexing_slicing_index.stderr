@@ -9,6 +9,12 @@ LL | const REF: &i32 = &ARR[idx()]; // This should be linted, since `suppress-re
    = note: `-D clippy::indexing-slicing` implied by `-D warnings`
    = help: to override `-D warnings` add `#[allow(clippy::indexing_slicing)]`
 
+error[E0080]: evaluation of constant value failed
+  --> $DIR/indexing_slicing_index.rs:16:24
+   |
+LL | const REF_ERR: &i32 = &ARR[idx4()]; // Ok, let rustc handle const contexts.
+   |                        ^^^^^^^^^^^ index out of bounds: the length is 2 but the index is 4
+
 error: indexing may panic
   --> $DIR/indexing_slicing_index.rs:16:24
    |
@@ -95,12 +101,6 @@ LL |     v[M];
    |     ^^^^
    |
    = help: consider using `.get(n)` or `.get_mut(n)` instead
-
-error[E0080]: evaluation of constant value failed
-  --> $DIR/indexing_slicing_index.rs:16:24
-   |
-LL | const REF_ERR: &i32 = &ARR[idx4()]; // Ok, let rustc handle const contexts.
-   |                        ^^^^^^^^^^^ index out of bounds: the length is 2 but the index is 4
 
 error: aborting due to 12 previous errors
 

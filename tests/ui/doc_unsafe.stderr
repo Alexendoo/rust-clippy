@@ -8,12 +8,6 @@ LL | pub unsafe fn destroy_the_planet() {
    = help: to override `-D warnings` add `#[allow(clippy::missing_safety_doc)]`
 
 error: unsafe function's docs miss `# Safety` section
-  --> $DIR/doc_unsafe.rs:32:5
-   |
-LL |     pub unsafe fn republished() {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: unsafe function's docs miss `# Safety` section
   --> $DIR/doc_unsafe.rs:40:5
    |
 LL |     unsafe fn woefully_underdocumented(self);
@@ -41,6 +35,12 @@ LL | very_unsafe!();
    | -------------- in this macro invocation
    |
    = note: this error originates in the macro `very_unsafe` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unsafe function's docs miss `# Safety` section
+  --> $DIR/doc_unsafe.rs:32:5
+   |
+LL |     pub unsafe fn republished() {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: aborting due to 6 previous errors
 

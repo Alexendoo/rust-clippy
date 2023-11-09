@@ -95,6 +95,12 @@ LL |     fn trait_method(&self, _foo: &Foo);
    |                                  ^^^^ help: consider passing by value instead: `Foo`
 
 error: this argument (N byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+  --> $DIR/trivially_copy_pass_by_ref.rs:159:37
+   |
+LL | fn _unrelated_lifetimes<'a, 'b>(_x: &'a u32, y: &'b u32) -> &'b u32 {
+   |                                     ^^^^^^^ help: consider passing by value instead: `u32`
+
+error: this argument (N byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
   --> $DIR/trivially_copy_pass_by_ref.rs:125:21
    |
 LL |     fn foo_never(x: &i32) {
@@ -105,12 +111,6 @@ error: this argument (N byte) is passed by reference, but would be more efficien
    |
 LL |     fn foo(x: &i32) {
    |               ^^^^ help: consider passing by value instead: `i32`
-
-error: this argument (N byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-  --> $DIR/trivially_copy_pass_by_ref.rs:159:37
-   |
-LL | fn _unrelated_lifetimes<'a, 'b>(_x: &'a u32, y: &'b u32) -> &'b u32 {
-   |                                     ^^^^^^^ help: consider passing by value instead: `u32`
 
 error: aborting due to 18 previous errors
 

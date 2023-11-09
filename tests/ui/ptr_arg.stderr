@@ -116,6 +116,30 @@ error: using a reference to `Cow` is not recommended
 LL | fn test_cow_with_ref(c: &Cow<[i32]>) {}
    |                         ^^^^^^^^^^^ help: change this to: `&[i32]`
 
+error: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
+  --> $DIR/ptr_arg.rs:185:29
+   |
+LL | fn mut_vec_slice_methods(v: &mut Vec<u32>) {
+   |                             ^^^^^^^^^^^^^ help: change this to: `&mut [u32]`
+
+error: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
+  --> $DIR/ptr_arg.rs:248:17
+   |
+LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
+   |                 ^^^^^^^^^^^^^ help: change this to: `&mut [u32]`
+
+error: writing `&mut String` instead of `&mut str` involves a new object where a slice will do
+  --> $DIR/ptr_arg.rs:248:35
+   |
+LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
+   |                                   ^^^^^^^^^^^ help: change this to: `&mut str`
+
+error: writing `&mut PathBuf` instead of `&mut Path` involves a new object where a slice will do
+  --> $DIR/ptr_arg.rs:248:51
+   |
+LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
+   |                                                   ^^^^^^^^^^^^ help: change this to: `&mut Path`
+
 error: writing `&String` instead of `&str` involves a new object where a slice will do
   --> $DIR/ptr_arg.rs:136:66
    |
@@ -163,30 +187,6 @@ LL |
 LL ~         let _ = str.to_path_buf().pop();
 LL ~         let _ = str.to_path_buf().clone();
    |
-
-error: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
-  --> $DIR/ptr_arg.rs:185:29
-   |
-LL | fn mut_vec_slice_methods(v: &mut Vec<u32>) {
-   |                             ^^^^^^^^^^^^^ help: change this to: `&mut [u32]`
-
-error: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
-  --> $DIR/ptr_arg.rs:248:17
-   |
-LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
-   |                 ^^^^^^^^^^^^^ help: change this to: `&mut [u32]`
-
-error: writing `&mut String` instead of `&mut str` involves a new object where a slice will do
-  --> $DIR/ptr_arg.rs:248:35
-   |
-LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
-   |                                   ^^^^^^^^^^^ help: change this to: `&mut str`
-
-error: writing `&mut PathBuf` instead of `&mut Path` involves a new object where a slice will do
-  --> $DIR/ptr_arg.rs:248:51
-   |
-LL | fn dyn_trait(a: &mut Vec<u32>, b: &mut String, c: &mut PathBuf) {
-   |                                                   ^^^^^^^^^^^^ help: change this to: `&mut Path`
 
 error: using a reference to `Cow` is not recommended
   --> $DIR/ptr_arg.rs:274:39

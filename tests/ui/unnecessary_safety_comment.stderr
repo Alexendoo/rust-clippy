@@ -1,3 +1,41 @@
+error: expression has unnecessary safety comment
+  --> $DIR/unnecessary_safety_comment.rs:55:5
+   |
+LL |     24
+   |     ^^
+   |
+help: consider removing the safety comment
+  --> $DIR/unnecessary_safety_comment.rs:54:5
+   |
+LL |     // SAFETY: unnecessary
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   = note: `-D clippy::unnecessary-safety-comment` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_safety_comment)]`
+
+error: statement has unnecessary safety comment
+  --> $DIR/unnecessary_safety_comment.rs:47:5
+   |
+LL |     let num = 42;
+   |     ^^^^^^^^^^^^^
+   |
+help: consider removing the safety comment
+  --> $DIR/unnecessary_safety_comment.rs:46:5
+   |
+LL |     // SAFETY: unnecessary
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+error: statement has unnecessary safety comment
+  --> $DIR/unnecessary_safety_comment.rs:51:5
+   |
+LL |     if num > 24 {}
+   |     ^^^^^^^^^^^^^^
+   |
+help: consider removing the safety comment
+  --> $DIR/unnecessary_safety_comment.rs:50:5
+   |
+LL |     // SAFETY: unnecessary
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
 error: constant item has unnecessary safety comment
   --> $DIR/unnecessary_safety_comment.rs:6:5
    |
@@ -9,8 +47,6 @@ help: consider removing the safety comment
    |
 LL |     // SAFETY:
    |     ^^^^^^^^^^
-   = note: `-D clippy::unnecessary-safety-comment` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::unnecessary_safety_comment)]`
 
 error: static item has unnecessary safety comment
   --> $DIR/unnecessary_safety_comment.rs:9:5
@@ -75,42 +111,6 @@ help: consider removing the safety comment
 LL |             // Safety: unnecessary
    |             ^^^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the macro `with_safety_comment` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: expression has unnecessary safety comment
-  --> $DIR/unnecessary_safety_comment.rs:55:5
-   |
-LL |     24
-   |     ^^
-   |
-help: consider removing the safety comment
-  --> $DIR/unnecessary_safety_comment.rs:54:5
-   |
-LL |     // SAFETY: unnecessary
-   |     ^^^^^^^^^^^^^^^^^^^^^^
-
-error: statement has unnecessary safety comment
-  --> $DIR/unnecessary_safety_comment.rs:47:5
-   |
-LL |     let num = 42;
-   |     ^^^^^^^^^^^^^
-   |
-help: consider removing the safety comment
-  --> $DIR/unnecessary_safety_comment.rs:46:5
-   |
-LL |     // SAFETY: unnecessary
-   |     ^^^^^^^^^^^^^^^^^^^^^^
-
-error: statement has unnecessary safety comment
-  --> $DIR/unnecessary_safety_comment.rs:51:5
-   |
-LL |     if num > 24 {}
-   |     ^^^^^^^^^^^^^^
-   |
-help: consider removing the safety comment
-  --> $DIR/unnecessary_safety_comment.rs:50:5
-   |
-LL |     // SAFETY: unnecessary
-   |     ^^^^^^^^^^^^^^^^^^^^^^
 
 error: aborting due to 9 previous errors
 

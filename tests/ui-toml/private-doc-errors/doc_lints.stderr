@@ -11,24 +11,6 @@ LL |     clippy::unnecessary_safety_doc,
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: safe function's docs have unnecessary `# Safety` section
-  --> $DIR/doc_lints.rs:23:5
-   |
-LL |     pub fn only_crate_wide_accessible() -> Result<(), ()> {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: docs for function returning `Result` missing `# Errors` section
-  --> $DIR/doc_lints.rs:23:5
-   |
-LL |     pub fn only_crate_wide_accessible() -> Result<(), ()> {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-note: the lint level is defined here
-  --> $DIR/doc_lints.rs:3:5
-   |
-LL |     clippy::missing_errors_doc,
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: safe function's docs have unnecessary `# Safety` section
   --> $DIR/doc_lints.rs:38:5
    |
 LL |     fn private(&self) {
@@ -49,6 +31,24 @@ note: the lint level is defined here
   --> $DIR/doc_lints.rs:4:5
    |
 LL |     clippy::missing_panics_doc
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: safe function's docs have unnecessary `# Safety` section
+  --> $DIR/doc_lints.rs:23:5
+   |
+LL |     pub fn only_crate_wide_accessible() -> Result<(), ()> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> $DIR/doc_lints.rs:23:5
+   |
+LL |     pub fn only_crate_wide_accessible() -> Result<(), ()> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> $DIR/doc_lints.rs:3:5
+   |
+LL |     clippy::missing_errors_doc,
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: unsafe function's docs miss `# Safety` section

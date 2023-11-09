@@ -237,54 +237,6 @@ LL +         String::new()
    |
 
 error: unneeded `return` statement
-  --> $DIR/needless_return.rs:134:32
-   |
-LL |         bar.unwrap_or_else(|_| return)
-   |                                ^^^^^^
-   |
-help: replace `return` with an empty block
-   |
-LL |         bar.unwrap_or_else(|_| {})
-   |                                ~~
-
-error: unneeded `return` statement
-  --> $DIR/needless_return.rs:138:21
-   |
-LL |           let _ = || {
-   |  _____________________^
-LL | |             return;
-   | |__________________^
-   |
-help: remove `return`
-   |
-LL -         let _ = || {
-LL -             return;
-LL +         let _ = || {
-   |
-
-error: unneeded `return` statement
-  --> $DIR/needless_return.rs:141:20
-   |
-LL |         let _ = || return;
-   |                    ^^^^^^
-   |
-help: replace `return` with an empty block
-   |
-LL |         let _ = || {};
-   |                    ~~
-
-error: unneeded `return` statement
-  --> $DIR/needless_return.rs:147:32
-   |
-LL |         res.unwrap_or_else(|_| return Foo)
-   |                                ^^^^^^^^^^
-   |
-help: remove `return`
-   |
-LL |         res.unwrap_or_else(|_| Foo)
-   |                                ~~~
-
-error: unneeded `return` statement
   --> $DIR/needless_return.rs:156:5
    |
 LL |     return true;
@@ -577,6 +529,78 @@ LL ~     }
    |
 
 error: unneeded `return` statement
+  --> $DIR/needless_return.rs:304:9
+   |
+LL |         return Ok(format!("ok!"));
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove `return`
+   |
+LL -         return Ok(format!("ok!"));
+LL +         Ok(format!("ok!"))
+   |
+
+error: unneeded `return` statement
+  --> $DIR/needless_return.rs:306:9
+   |
+LL |         return Err(format!("err!"));
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove `return`
+   |
+LL -         return Err(format!("err!"));
+LL +         Err(format!("err!"))
+   |
+
+error: unneeded `return` statement
+  --> $DIR/needless_return.rs:134:32
+   |
+LL |         bar.unwrap_or_else(|_| return)
+   |                                ^^^^^^
+   |
+help: replace `return` with an empty block
+   |
+LL |         bar.unwrap_or_else(|_| {})
+   |                                ~~
+
+error: unneeded `return` statement
+  --> $DIR/needless_return.rs:138:21
+   |
+LL |           let _ = || {
+   |  _____________________^
+LL | |             return;
+   | |__________________^
+   |
+help: remove `return`
+   |
+LL -         let _ = || {
+LL -             return;
+LL +         let _ = || {
+   |
+
+error: unneeded `return` statement
+  --> $DIR/needless_return.rs:141:20
+   |
+LL |         let _ = || return;
+   |                    ^^^^^^
+   |
+help: replace `return` with an empty block
+   |
+LL |         let _ = || {};
+   |                    ~~
+
+error: unneeded `return` statement
+  --> $DIR/needless_return.rs:147:32
+   |
+LL |         res.unwrap_or_else(|_| return Foo)
+   |                                ^^^^^^^^^^
+   |
+help: remove `return`
+   |
+LL |         res.unwrap_or_else(|_| Foo)
+   |                                ~~~
+
+error: unneeded `return` statement
   --> $DIR/needless_return.rs:285:20
    |
 LL |           let _ = 42;
@@ -603,30 +627,6 @@ help: remove `return`
    |
 LL -         let _ = 42; return;
 LL +         let _ = 42;
-   |
-
-error: unneeded `return` statement
-  --> $DIR/needless_return.rs:304:9
-   |
-LL |         return Ok(format!("ok!"));
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-help: remove `return`
-   |
-LL -         return Ok(format!("ok!"));
-LL +         Ok(format!("ok!"))
-   |
-
-error: unneeded `return` statement
-  --> $DIR/needless_return.rs:306:9
-   |
-LL |         return Err(format!("err!"));
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-help: remove `return`
-   |
-LL -         return Err(format!("err!"));
-LL +         Err(format!("err!"))
    |
 
 error: unneeded `return` statement

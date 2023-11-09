@@ -1,11 +1,17 @@
 error: unnecessary structure name repetition
+  --> $DIR/use_self.rs:644:17
+   |
+LL |                 E::A => {},
+   |                 ^ help: use the applicable keyword: `Self`
+   |
+   = note: `-D clippy::use-self` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::use_self)]`
+
+error: unnecessary structure name repetition
   --> $DIR/use_self.rs:21:21
    |
 LL |         fn new() -> Foo {
    |                     ^^^ help: use the applicable keyword: `Self`
-   |
-   = note: `-D clippy::use-self` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::use_self)]`
 
 error: unnecessary structure name repetition
   --> $DIR/use_self.rs:22:13
@@ -246,12 +252,6 @@ error: unnecessary structure name repetition
    |
 LL |             let crate::issue8845::Bar { x, .. } = self;
    |                 ^^^^^^^^^^^^^^^^^^^^^ help: use the applicable keyword: `Self`
-
-error: unnecessary structure name repetition
-  --> $DIR/use_self.rs:644:17
-   |
-LL |                 E::A => {},
-   |                 ^ help: use the applicable keyword: `Self`
 
 error: aborting due to 42 previous errors
 

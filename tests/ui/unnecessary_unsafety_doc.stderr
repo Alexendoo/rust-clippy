@@ -8,12 +8,6 @@ LL | pub fn apocalypse(universe: &mut ()) {
    = help: to override `-D warnings` add `#[allow(clippy::unnecessary_safety_doc)]`
 
 error: safe function's docs have unnecessary `# Safety` section
-  --> $DIR/unnecessary_unsafety_doc.rs:45:5
-   |
-LL |     pub fn republished() {
-   |     ^^^^^^^^^^^^^^^^^^^^
-
-error: safe function's docs have unnecessary `# Safety` section
   --> $DIR/unnecessary_unsafety_doc.rs:58:5
    |
 LL |     fn documented(self);
@@ -47,6 +41,12 @@ error: docs for safe trait have unnecessary `# Safety` section
    |
 LL | pub trait DocumentedSafeTraitWithImplementationHeader {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: safe function's docs have unnecessary `# Safety` section
+  --> $DIR/unnecessary_unsafety_doc.rs:45:5
+   |
+LL |     pub fn republished() {
+   |     ^^^^^^^^^^^^^^^^^^^^
 
 error: aborting due to 7 previous errors
 

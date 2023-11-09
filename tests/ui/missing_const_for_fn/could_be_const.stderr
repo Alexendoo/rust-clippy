@@ -76,6 +76,15 @@ LL | | }
    | |_^
 
 error: this could be a `const fn`
+  --> $DIR/could_be_const.rs:97:1
+   |
+LL | / fn msrv_1_46() -> i32 {
+LL | |
+LL | |     46
+LL | | }
+   | |_^
+
+error: this could be a `const fn`
   --> $DIR/could_be_const.rs:75:9
    |
 LL | /         pub fn b(self, a: &A) -> B {
@@ -92,15 +101,6 @@ LL | |
 LL | |         byte.is_ascii_digit();
 LL | |     }
    | |_____^
-
-error: this could be a `const fn`
-  --> $DIR/could_be_const.rs:97:1
-   |
-LL | / fn msrv_1_46() -> i32 {
-LL | |
-LL | |     46
-LL | | }
-   | |_^
 
 error: aborting due to 11 previous errors
 
