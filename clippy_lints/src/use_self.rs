@@ -18,13 +18,12 @@ use rustc_span::Span;
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Checks for unnecessary repetition of structure name when a
-    /// replacement with `Self` is applicable.
+    /// Checks for unnecessary repetition of structure name when a replacement
+    /// with `Self` is applicable.
     ///
     /// ### Why is this bad?
-    /// Unnecessary repetition. Mixed use of `Self` and struct
-    /// name
-    /// feels inconsistent.
+    /// Unnecessary repetition. Mixed use of `Self` and struct name feels
+    /// inconsistent.
     ///
     /// ### Known problems
     /// - Unaddressed false negative in fn bodies of trait implementations
