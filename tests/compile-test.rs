@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::env::{self, set_var, var_os};
 use std::ffi::{OsStr, OsString};
 use std::fs;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use test_utils::IS_RUSTC_TEST_SUITE;
@@ -120,6 +121,7 @@ fn base_config(test_dir: &str) -> (Config, Args) {
         target: None,
         bless_command: Some("cargo uibless".into()),
         out_dir: target_dir.join("ui_test"),
+        threads: NonZeroUsize::new(1),
         ..Config::rustc(Path::new("tests").join(test_dir))
     };
     config.comment_defaults.base().mode = Some(Spanned::dummy(Mode::Yolo {
