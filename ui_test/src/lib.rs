@@ -80,10 +80,8 @@ impl Match {
                     .unwrap();
                 }
 
-                PATH_RE.replace_all(text, |caps: &Captures<'_>| {
-                    caps[0].replace(r"\", replacement)
-                })
-            }
+                PATH_RE.replace_all(text, |caps: &Captures<'_>| caps[0].replace(r"\", replacement))
+            },
         }
     }
 }
@@ -178,9 +176,7 @@ pub fn default_per_file_config(config: &mut Config, _path: &Path, file_contents:
         config.program.args.push("--crate-type=proc-macro".into())
     } else if file_contents.find(b"#[test]").is_some() {
         config.program.args.push("--test".into());
-    } else if file_contents.find(b"fn main()").is_none()
-        && file_contents.find(b"#[start]").is_none()
-    {
+    } else if file_contents.find(b"fn main()").is_none() && file_contents.find(b"#[start]").is_none() {
         config.program.args.push("--crate-type=lib".into());
     }
 }
@@ -250,10 +246,7 @@ pub fn run_tests_generic(
         return Ok(());
     }
     for config in &mut configs {
-        if config.filter_exact
-            && config.filter_files.len() == 1
-            && config.filter_files[0] == "ui_test"
-        {
+        if config.filter_exact && config.filter_files.len() == 1 && config.filter_files[0] == "ui_test" {
             config.filter_exact = false;
             config.filter_files.clear();
         }
@@ -328,16 +321,13 @@ pub fn run_tests_generic(
                             status,
                         })?;
                         continue;
-                    }
+                    },
                     Err(err) => {
                         finished_files_sender.send(TestRun {
                             result: Err(Errored {
                                 command: Command::new("<unknown>"),
                                 errors: vec![Error::Bug(
-                                    *Box::<dyn std::any::Any + Send + 'static>::downcast::<String>(
-                                        err,
-                                    )
-                                    .unwrap(),
+                                    *Box::<dyn std::any::Any + Send + 'static>::downcast::<String>(err).unwrap(),
                                 )],
                                 stderr: vec![],
                                 stdout: vec![],
@@ -345,7 +335,7 @@ pub fn run_tests_generic(
                             status,
                         })?;
                         continue;
-                    }
+                    },
                 };
                 for result in result {
                     finished_files_sender.send(result)?;
@@ -439,11 +429,7 @@ fn parse_and_test_file(
     mut config: Config,
     file_contents: Vec<u8>,
 ) -> Result<Vec<TestRun>, Errored> {
-    let comments = parse_comments(
-        &file_contents,
-        config.comment_defaults.clone(),
-        status.path(),
-    )?;
+    let comments = parse_comments(&file_contents, config.comment_defaults.clone(), status.path())?;
     const EMPTY: &[String] = &[String::new()];
     // Run the test for all revisions
     let revisions = comments.revisions.as_deref().unwrap_or(EMPTY);
@@ -468,8 +454,8 @@ fn parse_and_test_file(
                         return TestRun {
                             result: Err(err),
                             status,
-                        }
-                    }
+                        };
+                    },
                 }
                 status.update_status(String::new());
                 built_deps = true;
@@ -481,11 +467,7 @@ fn parse_and_test_file(
         .collect())
 }
 
-fn parse_comments(
-    file_contents: &[u8],
-    comments: Comments,
-    file: &Path,
-) -> Result<Comments, Errored> {
+fn parse_comments(file_contents: &[u8], comments: Comments, file: &Path) -> Result<Comments, Errored> {
     match Comments::parse(file_contents, comments, file) {
         Ok(comments) => Ok(comments),
         Err(errors) => Err(Errored {
@@ -497,21 +479,13 @@ fn parse_comments(
     }
 }
 
-fn build_command(
-    path: &Path,
-    config: &Config,
-    revision: &str,
-    comments: &Comments,
-) -> Result<Command, Errored> {
+fn build_command(path: &Path, config: &Config, revision: &str, comments: &Comments) -> Result<Command, Errored> {
     let mut cmd = config.program.build(&config.out_dir);
     cmd.arg(path);
     if !revision.is_empty() {
         cmd.arg(format!("--cfg={revision}"));
     }
-    for arg in comments
-        .for_revision(revision)
-        .flat_map(|r| r.compile_flags.iter())
-    {
+    for arg in comments.for_revision(revision).flat_map(|r| r.compile_flags.iter()) {
         cmd.arg(arg);
     }
     let edition = comments.edition(revision)?;
@@ -520,8 +494,8 @@ fn build_command(
         cmd.arg("--edition").arg(&*edition);
     }
 
-    // False positive in miri, our `map` uses a ref pattern to get the references to the tuple fields instead
-    // of a reference to a tuple
+    // False positive in miri, our `map` uses a ref pattern to get the references to the tuple fields
+    // instead of a reference to a tuple
     #[allow(clippy::map_identity)]
     cmd.envs(
         comments
@@ -545,10 +519,7 @@ fn build_aux(
         stdout: vec![],
     })?;
     let comments = parse_comments(&file_contents, config.comment_defaults.clone(), aux_file)?;
-    assert_eq!(
-        comments.revisions, None,
-        "aux builds cannot specify revisions"
-    );
+    assert_eq!(comments.revisions, None, "aux builds cannot specify revisions");
 
     let mut config = config.clone();
 
@@ -582,13 +553,7 @@ fn build_aux(
 
     let mut aux_cmd = build_command(aux_file, &config, "", &comments)?;
 
-    let mut extra_args = build_aux_files(
-        aux_file.parent().unwrap(),
-        &comments,
-        "",
-        &config,
-        build_manager,
-    )?;
+    let mut extra_args = build_aux_files(aux_file.parent().unwrap(), &comments, "", &config, build_manager)?;
     // Make sure we see our dependencies
     aux_cmd.args(extra_args.iter());
 
@@ -630,12 +595,7 @@ fn build_aux(
 }
 
 impl dyn TestStatus {
-    fn run_test(
-        &self,
-        build_manager: &BuildManager<'_>,
-        config: &Config,
-        comments: &Comments,
-    ) -> TestResult {
+    fn run_test(&self, build_manager: &BuildManager<'_>, config: &Config, comments: &Comments) -> TestResult {
         let path = self.path();
         let revision = self.revision();
 
@@ -667,6 +627,11 @@ impl dyn TestStatus {
         }
 
         let (cmd, status, stderr, stdout) = self.run_command(cmd)?;
+        println!(
+            "{cmd:?} {status:?}\nSTDOUT\n{}\nSTDERR\n{}",
+            std::str::from_utf8(&stdout).unwrap(),
+            std::str::from_utf8(&stderr).unwrap()
+        );
 
         let mode = comments.mode(revision)?;
         let cmd = check_test_result(
@@ -688,31 +653,21 @@ impl dyn TestStatus {
             return run_test_binary(mode, path, revision, comments, cmd, &config);
         }
 
-        run_rustfix(
-            &stderr, &stdout, path, comments, revision, &config, *mode, extra_args,
-        )?;
+        run_rustfix(&stderr, &stdout, path, comments, revision, &config, *mode, extra_args)?;
         Ok(TestOk::Ok)
     }
 
     /// Run a command, and if it takes more than 100ms, start appending the last stderr/stdout
     /// line to the current status spinner.
-    fn run_command(
-        &self,
-        mut cmd: Command,
-    ) -> Result<(Command, ExitStatus, Vec<u8>, Vec<u8>), Errored> {
+    fn run_command(&self, mut cmd: Command) -> Result<(Command, ExitStatus, Vec<u8>, Vec<u8>), Errored> {
         match cmd.output() {
             Err(err) => Err(Errored {
                 errors: vec![],
                 stderr: err.to_string().into_bytes(),
-                stdout: format!("could not spawn `{:?}` as a process", cmd.get_program())
-                    .into_bytes(),
+                stdout: format!("could not spawn `{:?}` as a process", cmd.get_program()).into_bytes(),
                 command: cmd,
             }),
-            Ok(Output {
-                status,
-                stdout,
-                stderr,
-            }) => Ok((cmd, status, stderr, stdout)),
+            Ok(Output { status, stdout, stderr }) => Ok((cmd, status, stderr, stdout)),
         }
     }
 }
@@ -740,10 +695,7 @@ fn build_aux_files(
                         Build::Aux {
                             aux_file: strip_path_prefix(
                                 &aux_file.canonicalize().map_err(|err| Errored {
-                                    command: Command::new(format!(
-                                        "canonicalizing path `{}`",
-                                        aux_file.display()
-                                    )),
+                                    command: Command::new(format!("canonicalizing path `{}`", aux_file.display())),
                                     errors: vec![],
                                     stderr: err.to_string().into_bytes(),
                                     stdout: vec![],
@@ -844,9 +796,7 @@ fn run_rustfix(
     extra_args: Vec<OsString>,
 ) -> Result<(), Errored> {
     let no_run_rustfix =
-        comments.find_one_for_revision(revision, "`no-rustfix` annotations", |r| {
-            r.no_rustfix.clone()
-        })?;
+        comments.find_one_for_revision(revision, "`no-rustfix` annotations", |r| r.no_rustfix.clone())?;
 
     let global_rustfix = match mode {
         Mode::Pass | Mode::Run { .. } | Mode::Panic => RustfixMode::Disabled,
@@ -968,13 +918,8 @@ fn run_rustfix(
     let mut cmd = build_command(&rustfix_path, config, revision, &rustfix_comments)?;
     cmd.args(extra_args);
     // picking the crate name from the file name is problematic when `.revision_name` is inserted
-    cmd.arg("--crate-name").arg(
-        path.file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .replace('-', "_"),
-    );
+    cmd.arg("--crate-name")
+        .arg(path.file_stem().unwrap().to_str().unwrap().replace('-', "_"));
     let output = cmd.output().unwrap();
     if output.status.success() {
         Ok(())
@@ -1090,9 +1035,7 @@ fn check_annotations(
         }
     }
     let diagnostic_code_prefix = comments
-        .find_one_for_revision(revision, "diagnostic_code_prefix", |r| {
-            r.diagnostic_code_prefix.clone()
-        })?
+        .find_one_for_revision(revision, "diagnostic_code_prefix", |r| r.diagnostic_code_prefix.clone())?
         .into_inner()
         .map(|s| s.content)
         .unwrap_or_default();
@@ -1101,14 +1044,11 @@ fn check_annotations(
     // We will ensure that *all* diagnostics of level at least `lowest_annotation_level`
     // are matched.
     let mut lowest_annotation_level = Level::Error;
-    'err: for &ErrorMatch { ref kind, line } in comments
-        .for_revision(revision)
-        .flat_map(|r| r.error_matches.iter())
-    {
+    'err: for &ErrorMatch { ref kind, line } in comments.for_revision(revision).flat_map(|r| r.error_matches.iter()) {
         match kind {
             ErrorMatchKind::Code(code) => {
                 seen_error_match = Some(code.span());
-            }
+            },
             &ErrorMatchKind::Pattern { ref pattern, level } => {
                 seen_error_match = Some(pattern.span());
                 // If we found a diagnostic with a level annotation, make sure that all
@@ -1117,7 +1057,7 @@ fn check_annotations(
                 if lowest_annotation_level > level {
                     lowest_annotation_level = level;
                 }
-            }
+            },
         }
 
         if let Some(msgs) = messages.get_mut(line.get()) {
@@ -1130,7 +1070,7 @@ fn check_annotations(
                         msgs.remove(found);
                         continue;
                     }
-                }
+                },
                 ErrorMatchKind::Code(code) => {
                     for (i, msg) in msgs.iter().enumerate() {
                         if msg.level != Level::Error {
@@ -1145,7 +1085,7 @@ fn check_annotations(
                             continue 'err;
                         }
                     }
-                }
+                },
             }
         }
 
@@ -1161,11 +1101,10 @@ fn check_annotations(
         });
     }
 
-    let required_annotation_level = comments.find_one_for_revision(
-        revision,
-        "`require_annotations_for_level` annotations",
-        |r| r.require_annotations_for_level.clone(),
-    )?;
+    let required_annotation_level =
+        comments.find_one_for_revision(revision, "`require_annotations_for_level` annotations", |r| {
+            r.require_annotations_for_level.clone()
+        })?;
 
     let required_annotation_level = required_annotation_level
         .into_inner()
@@ -1205,20 +1144,17 @@ fn check_annotations(
     }
 
     match (*mode, seen_error_match) {
-        (Mode::Pass, Some(span)) | (Mode::Panic, Some(span)) => {
-            errors.push(Error::PatternFoundInPassTest {
-                mode: mode.span(),
-                span,
-            })
-        }
+        (Mode::Pass, Some(span)) | (Mode::Panic, Some(span)) => errors.push(Error::PatternFoundInPassTest {
+            mode: mode.span(),
+            span,
+        }),
         (
             Mode::Fail {
-                require_patterns: true,
-                ..
+                require_patterns: true, ..
             },
             None,
         ) => errors.push(Error::NoPatternsFound),
-        _ => {}
+        _ => {},
     }
     Ok(())
 }
@@ -1246,30 +1182,21 @@ fn check_output(
                     bless_command: config.bless_command.clone(),
                 });
             }
-        }
+        },
         OutputConflictHandling::Bless => {
             if output.is_empty() {
                 let _ = std::fs::remove_file(&path);
             } else {
                 std::fs::write(&path, &output).unwrap();
             }
-        }
-        OutputConflictHandling::Ignore => {}
+        },
+        OutputConflictHandling::Ignore => {},
     }
     path
 }
 
-fn output_path(
-    path: &Path,
-    comments: &Comments,
-    kind: String,
-    target: &str,
-    revision: &str,
-) -> PathBuf {
-    if comments
-        .for_revision(revision)
-        .any(|r| r.stderr_per_bitwidth)
-    {
+fn output_path(path: &Path, comments: &Comments, kind: String, target: &str, revision: &str) -> PathBuf {
+    if comments.for_revision(revision).any(|r| r.stderr_per_bitwidth) {
         return path.with_extension(format!("{}bit.{kind}", get_pointer_width(target)));
     }
     path.with_extension(kind)
