@@ -75,34 +75,6 @@ fn track_clippy_args(parse_sess: &mut ParseSess, args_env_var: &Option<String>) 
     ));
 }
 
-/// Track files that may be accessed at runtime in `file_depinfo` so that cargo will re-run clippy
-/// when any of them are modified
-fn track_files(parse_sess: &mut ParseSess) {
-    let file_depinfo = parse_sess.file_depinfo.get_mut();
-
-    // Used by `clippy::cargo` lints and to determine the MSRV. `cargo clippy` executes `clippy-driver`
-    // with the current directory set to `CARGO_MANIFEST_DIR` so a relative path is fine
-    if Path::new("Cargo.toml").exists() {
-        file_depinfo.insert(Symbol::intern("Cargo.toml"));
-    }
-
-    // `clippy.toml` will be automatically tracked as it's loaded with `sess.source_map().load_file()`
-
-    // During development track the `clippy-driver` executable so that cargo will re-run clippy whenever
-    // it is rebuilt
-    #[expect(
-        clippy::collapsible_if,
-        reason = "Due to a bug in let_chains this if statement can't be collapsed"
-    )]
-    if cfg!(debug_assertions) {
-        if let Ok(current_exe) = env::current_exe()
-            && let Some(current_exe) = current_exe.to_str()
-        {
-            file_depinfo.insert(Symbol::intern(current_exe));
-        }
-    }
-}
-
 struct DefaultCallbacks;
 impl rustc_driver::Callbacks for DefaultCallbacks {}
 
@@ -121,41 +93,12 @@ impl rustc_driver::Callbacks for RustcCallbacks {
     }
 }
 
-struct ClippyCallbacks {
-    clippy_args_var: Option<String>,
-}
+struct ClippyCallbacks {}
 
 impl rustc_driver::Callbacks for ClippyCallbacks {
     // JUSTIFICATION: necessary in clippy driver to set `mir_opt_level`
     #[allow(rustc::bad_opt_access)]
     fn config(&mut self, config: &mut interface::Config) {
-        // let conf_path = clippy_config::lookup_conf_file();
-        // let previous = config.register_lints.take();
-        let clippy_args_var = self.clippy_args_var.take();
-        config.parse_sess_created = Some(Box::new(move |parse_sess| {
-            track_clippy_args(parse_sess, &clippy_args_var);
-            track_files(parse_sess);
-
-            // Trigger a rebuild if CLIPPY_CONF_DIR changes. The value must be a valid string so
-            // changes between dirs that are invalid UTF-8 will not trigger rebuilds
-            parse_sess.env_depinfo.get_mut().insert((
-                Symbol::intern("CLIPPY_CONF_DIR"),
-                env::var("CLIPPY_CONF_DIR").ok().map(|dir| Symbol::intern(&dir)),
-            ));
-        }));
-        // config.register_lints = Some(Box::new(move |sess, lint_store| {
-        //     // technically we're ~guaranteed that this is none but might as well call anything that
-        //     // is there already. Certainly it can't hurt.
-        //     if let Some(previous) = &previous {
-        //         (previous)(sess, lint_store);
-        //     }
-
-        //     let conf = clippy_config::Conf::read(sess, &conf_path);
-        //     clippy_lints::register_lints(lint_store, conf);
-        //     clippy_lints::register_pre_expansion_lints(lint_store, conf);
-        //     clippy_lints::register_renamed(lint_store);
-        // }));
-
         // FIXME: #4825; This is required, because Clippy lints that are based on MIR have to be
         // run on the unoptimized MIR. On the other hand this results in some false negatives. If
         // MIR passes can be enabled / disabled separately, we should figure out, what passes to
@@ -289,7 +232,7 @@ pub fn main() {
         let clippy_enabled = !cap_lints_allow && (!no_deps || in_primary_package);
         if clippy_enabled {
             args.extend(clippy_args);
-            rustc_driver::RunCompiler::new(&args, &mut ClippyCallbacks { clippy_args_var })
+            rustc_driver::RunCompiler::new(&args, &mut ClippyCallbacks {})
                 .set_using_internal_features(using_internal_features)
                 .run()
         } else {
