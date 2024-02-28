@@ -129,8 +129,8 @@ impl rustc_driver::Callbacks for ClippyCallbacks {
     // JUSTIFICATION: necessary in clippy driver to set `mir_opt_level`
     #[allow(rustc::bad_opt_access)]
     fn config(&mut self, config: &mut interface::Config) {
-        let conf_path = clippy_config::lookup_conf_file();
-        let previous = config.register_lints.take();
+        // let conf_path = clippy_config::lookup_conf_file();
+        // let previous = config.register_lints.take();
         let clippy_args_var = self.clippy_args_var.take();
         config.parse_sess_created = Some(Box::new(move |parse_sess| {
             track_clippy_args(parse_sess, &clippy_args_var);
@@ -143,18 +143,18 @@ impl rustc_driver::Callbacks for ClippyCallbacks {
                 env::var("CLIPPY_CONF_DIR").ok().map(|dir| Symbol::intern(&dir)),
             ));
         }));
-        config.register_lints = Some(Box::new(move |sess, lint_store| {
-            // technically we're ~guaranteed that this is none but might as well call anything that
-            // is there already. Certainly it can't hurt.
-            if let Some(previous) = &previous {
-                (previous)(sess, lint_store);
-            }
+        // config.register_lints = Some(Box::new(move |sess, lint_store| {
+        //     // technically we're ~guaranteed that this is none but might as well call anything that
+        //     // is there already. Certainly it can't hurt.
+        //     if let Some(previous) = &previous {
+        //         (previous)(sess, lint_store);
+        //     }
 
-            let conf = clippy_config::Conf::read(sess, &conf_path);
-            clippy_lints::register_lints(lint_store, conf);
-            clippy_lints::register_pre_expansion_lints(lint_store, conf);
-            clippy_lints::register_renamed(lint_store);
-        }));
+        //     let conf = clippy_config::Conf::read(sess, &conf_path);
+        //     clippy_lints::register_lints(lint_store, conf);
+        //     clippy_lints::register_pre_expansion_lints(lint_store, conf);
+        //     clippy_lints::register_renamed(lint_store);
+        // }));
 
         // FIXME: #4825; This is required, because Clippy lints that are based on MIR have to be
         // run on the unoptimized MIR. On the other hand this results in some false negatives. If
