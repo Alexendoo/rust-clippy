@@ -43,20 +43,20 @@ jobs:
         sudo find "${SYSROOT}/lib" -maxdepth 1 -name '*dylib' -exec ln -s {} /usr/local/lib \;
 
     - name: Test 1
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 2
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 3
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 4
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 5
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 6
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 7
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 8
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt
     - name: Test 9
-      run: cargo test -F internal,deny-warnings --test sigabrt
+      run: cargo test --test sigabrt

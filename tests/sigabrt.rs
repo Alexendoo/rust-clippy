@@ -138,6 +138,7 @@ fn check() {
             let out = c.output().unwrap();
             if out.status.code().is_none() {
                 println!("{c:?}");
+                println!("status: {}", out.status);
                 println!("stdout:\n{}", std::str::from_utf8(&out.stdout).unwrap());
                 println!("stderr:\n{}", std::str::from_utf8(&out.stderr).unwrap());
 
