@@ -1,0 +1,7 @@
+error: internal compiler error: no errors reported for args
+ --> tests/actual_tests/rustc_ice.rs:8:5
+  |
+8 |     add("42", 3);
+  |     ^^^^^^^^^^^^
+
+thread 'rustc' panicked
