@@ -26,10 +26,6 @@ jobs:
     # NOTE: If you modify this job, make sure you copy the changes to clippy.yml
     steps:
     # Setup
-    - uses: rust-lang/simpleinfra/github-actions/cancel-outdated-builds@master
-      with:
-        github_token: "${{ secrets.github_token }}"
-
     - name: Checkout
       uses: actions/checkout@v4
 
@@ -54,4 +50,8 @@ jobs:
     - name: Test 2
       run: cargo test --features deny-warnings,internal -- --skip dogfood
     - name: Test 3
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 4
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 5
       run: cargo test --features deny-warnings,internal -- --skip dogfood
