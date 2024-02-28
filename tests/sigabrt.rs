@@ -98,6 +98,8 @@ static EXTERN_FLAGS: LazyLock<Vec<String>> = LazyLock::new(|| {
 
 #[test]
 fn check() {
+    println!("{:?}", std::thread::available_parallelism());
+
     let current_exe_path = env::current_exe().unwrap();
     let deps_path = current_exe_path.parent().unwrap();
     let profile_path = deps_path.parent().unwrap();
