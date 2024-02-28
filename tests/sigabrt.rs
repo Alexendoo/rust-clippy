@@ -1,6 +1,6 @@
 #![feature(lazy_cell)]
 
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::io::{self, Write};
 use std::process::Command;
 use std::{env, thread};
@@ -20,18 +20,6 @@ fn check(thread: usize) {
     let deps_path = current_exe_path.parent().unwrap();
     let profile_path = deps_path.parent().unwrap();
 
-    let mut args = Vec::new();
-    args.extend(
-        [
-            "--emit=metadata",
-            "-Aunused",
-            "-Ainternal_features",
-            "-Zui-testing",
-            "-Dwarnings",
-        ]
-        .map(OsString::from),
-    );
-
     let program = profile_path.join(if cfg!(windows) {
         "clippy-driver.exe"
     } else {
@@ -42,7 +30,6 @@ fn check(thread: usize) {
         let entry = f.unwrap();
         if entry.path().extension() == Some(OsStr::new("rs")) {
             let mut c = Command::new(&program);
-            c.args(&args);
             c.arg(entry.path());
             c.arg(format!("--out-dir=target/ui-{thread}"));
             let out = c.output().unwrap();
