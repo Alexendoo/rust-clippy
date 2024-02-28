@@ -124,7 +124,7 @@ fn check(thread: usize) {
         .map(OsString::from),
     );
 
-    args.extend(EXTERN_FLAGS.iter().map(OsString::from));
+    // args.extend(EXTERN_FLAGS.iter().map(OsString::from));
 
     if let Some(host_libs) = option_env!("HOST_LIBS") {
         let dep = format!("-Ldependency={}", Path::new(host_libs).join("deps").display());
