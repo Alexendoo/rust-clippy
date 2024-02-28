@@ -627,11 +627,7 @@ impl dyn TestStatus {
         }
 
         let (cmd, status, stderr, stdout) = self.run_command(cmd)?;
-        println!(
-            "{cmd:?} {status}\nSTDOUT\n{}\nSTDERR\n{}",
-            std::str::from_utf8(&stdout).unwrap(),
-            std::str::from_utf8(&stderr).unwrap()
-        );
+        println!("{cmd:?} {status}");
 
         let mode = comments.mode(revision)?;
         let cmd = check_test_result(
