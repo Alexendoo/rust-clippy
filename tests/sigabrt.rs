@@ -6,7 +6,6 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::LazyLock;
 use std::{env, fs};
-use walkdir::WalkDir;
 
 // Test dependencies may need an `extern crate` here to ensure that they show up
 // in the depinfo file (otherwise cargo thinks they are unused)
@@ -130,22 +129,39 @@ fn check() {
         "clippy-driver"
     });
 
-    for f in WalkDir::new("tests/ui") {
-        let entry = f.unwrap();
-        if entry.path().extension() == Some(OsStr::new("rs")) {
-            let mut c = Command::new(&program);
-            c.args(&args);
-            c.arg(entry.path());
-            c.arg("--out-dir=target/ui");
-            let out = c.output().unwrap();
-            if out.status.code().is_none() {
-                println!("{c:?}");
-                println!("status: {}", out.status);
-                println!("stdout:\n{}", std::str::from_utf8(&out.stdout).unwrap());
-                println!("stderr:\n{}", std::str::from_utf8(&out.stderr).unwrap());
+    for i in 0..5000 {
+        let mut c = Command::new(&program);
+        c.args(&args);
+        c.arg("tests/ui/hello_world.rs");
+        c.arg("--out-dir=target/ui");
+        let out = c.output().unwrap();
+        if !out.status.success() {
+            println!("run {i}");
+            println!("{c:?}");
+            println!("status: {}", out.status);
+            println!("stdout:\n{}", std::str::from_utf8(&out.stdout).unwrap());
+            println!("stderr:\n{}", std::str::from_utf8(&out.stderr).unwrap());
 
-                panic!();
-            }
+            panic!();
         }
     }
+
+    // for f in WalkDir::new("tests/ui") {
+    //     let entry = f.unwrap();
+    //     if entry.path().extension() == Some(OsStr::new("rs")) {
+    //         let mut c = Command::new(&program);
+    //         c.args(&args);
+    //         c.arg(entry.path());
+    //         c.arg("--out-dir=target/ui");
+    //         let out = c.output().unwrap();
+    //         if out.status.code().is_none() {
+    //             println!("{c:?}");
+    //             println!("status: {}", out.status);
+    //             println!("stdout:\n{}", std::str::from_utf8(&out.stdout).unwrap());
+    //             println!("stderr:\n{}", std::str::from_utf8(&out.stderr).unwrap());
+
+    //             panic!();
+    //         }
+    //     }
+    // }
 }
