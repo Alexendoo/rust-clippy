@@ -55,3 +55,11 @@ jobs:
       run: cargo test --features deny-warnings,internal -- --skip dogfood
     - name: Test 5
       run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 6
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 7
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 8
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
+    - name: Test 9
+      run: cargo test --features deny-warnings,internal -- --skip dogfood
