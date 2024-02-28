@@ -628,7 +628,7 @@ impl dyn TestStatus {
 
         let (cmd, status, stderr, stdout) = self.run_command(cmd)?;
         println!(
-            "{cmd:?} {status:?}\nSTDOUT\n{}\nSTDERR\n{}",
+            "{cmd:?} {status}\nSTDOUT\n{}\nSTDERR\n{}",
             std::str::from_utf8(&stdout).unwrap(),
             std::str::from_utf8(&stderr).unwrap()
         );
