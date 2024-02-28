@@ -13,7 +13,7 @@ fn check() {
                 for i in 0..5000 {
                     let mut c = Command::new("rustc");
                     c.arg("tests/ui/hello_world.rs");
-                    c.arg("--out-dir=target/ui");
+                    c.arg(format!("--out-dir=target/ui-{t}"));
                     let out = c.output().unwrap();
                     if !out.status.success() {
                         println!("run {i}, thread {t}");
