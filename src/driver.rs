@@ -13,10 +13,8 @@
 // FIXME: switch to something more ergonomic here, once available.
 // (Currently there is no way to opt into sysroot crates without `extern crate`.)
 extern crate rustc_driver;
-extern crate rustc_interface;
 extern crate rustc_session;
 
-use rustc_interface::interface;
 use rustc_session::config::ErrorOutputType;
 use rustc_session::EarlyDiagCtxt;
 
@@ -25,20 +23,7 @@ use std::process::exit;
 
 struct ClippyCallbacks;
 
-impl rustc_driver::Callbacks for ClippyCallbacks {
-    // JUSTIFICATION: necessary in clippy driver to set `mir_opt_level`
-    #[allow(rustc::bad_opt_access)]
-    fn config(&mut self, config: &mut interface::Config) {
-        // FIXME: #4825; This is required, because Clippy lints that are based on MIR have to be
-        // run on the unoptimized MIR. On the other hand this results in some false negatives. If
-        // MIR passes can be enabled / disabled separately, we should figure out, what passes to
-        // use for Clippy.
-        config.opts.unstable_opts.mir_opt_level = Some(0);
-
-        // Disable flattening and inlining of format_args!(), so the HIR matches with the AST.
-        config.opts.unstable_opts.flatten_format_args = false;
-    }
-}
+impl rustc_driver::Callbacks for ClippyCallbacks {}
 
 const BUG_REPORT_URL: &str = "https://github.com/rust-lang/rust-clippy/issues/new?template=ice.yml";
 
