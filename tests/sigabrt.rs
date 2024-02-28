@@ -3,7 +3,7 @@
 use std::ffi::OsStr;
 use std::io::{self, Write};
 use std::process::Command;
-use std::{env, thread};
+use std::thread;
 use walkdir::WalkDir;
 
 #[test]
@@ -16,20 +16,10 @@ fn test() {
 }
 
 fn check(thread: usize) {
-    let current_exe_path = env::current_exe().unwrap();
-    let deps_path = current_exe_path.parent().unwrap();
-    let profile_path = deps_path.parent().unwrap();
-
-    let program = profile_path.join(if cfg!(windows) {
-        "clippy-driver.exe"
-    } else {
-        "clippy-driver"
-    });
-
     for f in WalkDir::new("tests/ui") {
         let entry = f.unwrap();
         if entry.path().extension() == Some(OsStr::new("rs")) {
-            let mut c = Command::new(&program);
+            let mut c = Command::new("rustc");
             c.arg(entry.path());
             c.arg(format!("--out-dir=target/ui-{thread}"));
             let out = c.output().unwrap();
