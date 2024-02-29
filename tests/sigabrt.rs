@@ -7,6 +7,13 @@ use std::{env, thread};
 use walkdir::WalkDir;
 
 #[test]
+fn envs() {
+    for (k, v) in env::vars() {
+        println!("{k}: {v}");
+    }
+}
+
+#[test]
 fn test() {
     thread::scope(|s| {
         for t in 0..thread::available_parallelism().unwrap().get() {

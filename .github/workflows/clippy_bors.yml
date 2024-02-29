@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         include:
-        - os: macos-latest
+        - os: macos-13
           host: x86_64-apple-darwin
 
     runs-on: ${{ matrix.os }}
@@ -34,29 +34,31 @@ jobs:
         rustup set default-host ${{ matrix.host }}
         rustup show active-toolchain
 
-    # Run
-    - name: Link rustc dylib (MacOS)
-      if: runner.os == 'macOS'
-      run: |
-        SYSROOT=$(rustc --print sysroot)
-        sudo mkdir -p /usr/local/lib
-        sudo find "${SYSROOT}/lib" -maxdepth 1 -name '*dylib' -exec ln -s {} /usr/local/lib \;
+    - run: cargo test envs -- --nocapture
 
-    - name: Test 1
-      run: cargo test --test sigabrt
-    - name: Test 2
-      run: cargo test --test sigabrt
-    - name: Test 3
-      run: cargo test --test sigabrt
-    - name: Test 4
-      run: cargo test --test sigabrt
-    - name: Test 5
-      run: cargo test --test sigabrt
-    - name: Test 6
-      run: cargo test --test sigabrt
-    - name: Test 7
-      run: cargo test --test sigabrt
-    - name: Test 8
-      run: cargo test --test sigabrt
-    - name: Test 9
-      run: cargo test --test sigabrt
+    # Run
+    # - name: Link rustc dylib (MacOS)
+    #   if: runner.os == 'macOS'
+    #   run: |
+    #     SYSROOT=$(rustc --print sysroot)
+    #     sudo mkdir -p /usr/local/lib
+    #     sudo find "${SYSROOT}/lib" -maxdepth 1 -name '*dylib' -exec ln -s {} /usr/local/lib \;
+
+    # - name: Test 1
+    #   run: cargo test --test sigabrt
+    # - name: Test 2
+    #   run: cargo test --test sigabrt
+    # - name: Test 3
+    #   run: cargo test --test sigabrt
+    # - name: Test 4
+    #   run: cargo test --test sigabrt
+    # - name: Test 5
+    #   run: cargo test --test sigabrt
+    # - name: Test 6
+    #   run: cargo test --test sigabrt
+    # - name: Test 7
+    #   run: cargo test --test sigabrt
+    # - name: Test 8
+    #   run: cargo test --test sigabrt
+    # - name: Test 9
+    #   run: cargo test --test sigabrt
