@@ -277,16 +277,18 @@ pub fn main() {
             .chain(vec!["--cfg".into(), "clippy".into()])
             .collect::<Vec<String>>();
 
-        // We enable Clippy if one of the following conditions is met
-        // - IF Clippy is run on its test suite OR
-        // - IF Clippy is run on the main crate, not on deps (`!cap_lints_allow`) THEN
-        //    - IF `--no-deps` is not set (`!no_deps`) OR
-        //    - IF `--no-deps` is set and Clippy is run on the specified primary package
+        // Disable clippy if no lint results would be shown
         let cap_lints_allow = arg_value(&orig_args, "--cap-lints", |val| val == "allow").is_some()
             && arg_value(&orig_args, "--force-warn", |val| val.contains("clippy::")).is_none();
-        let in_primary_package = env::var("CARGO_PRIMARY_PACKAGE").is_ok();
 
-        let clippy_enabled = !cap_lints_allow && (!no_deps || in_primary_package);
+        // Disable clippy if `--no-deps` is passed and we're not in the primary package
+        let in_local_package_no_deps = no_deps && env::var("CARGO_PRIMARY_PACKAGE").is_err();
+
+        // Disable clippy when `--print` is passed for getting target info
+        // https://github.com/rust-lang/rust-clippy/issues/12623
+        let print = arg_value(&orig_args, "--print", |_| true).is_some();
+
+        let clippy_enabled = !cap_lints_allow && !in_local_package_no_deps && !print;
         if clippy_enabled {
             args.extend(clippy_args);
             rustc_driver::RunCompiler::new(&args, &mut ClippyCallbacks { clippy_args_var })
