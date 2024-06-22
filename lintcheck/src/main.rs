@@ -616,12 +616,6 @@ fn main() {
         driver::drive(&addr);
     }
 
-    // assert that we launch lintcheck from the repo root (via cargo lintcheck)
-    if fs::metadata("lintcheck/Cargo.toml").is_err() {
-        eprintln!("lintcheck needs to be run from clippy's repo root!\nUse `cargo lintcheck` alternatively.");
-        std::process::exit(3);
-    }
-
     let config = LintcheckConfig::new();
 
     match config.subcommand {
@@ -633,6 +627,12 @@ fn main() {
 
 #[allow(clippy::too_many_lines)]
 fn lintcheck(config: LintcheckConfig) {
+    // assert that we launch lintcheck from the repo root (via cargo lintcheck)
+    if fs::metadata("lintcheck/Cargo.toml").is_err() {
+        eprintln!("lintcheck needs to be run from clippy's repo root!\nUse `cargo lintcheck` alternatively.");
+        std::process::exit(3);
+    }
+
     println!("Compiling clippy...");
     build_clippy();
     println!("Done compiling");
