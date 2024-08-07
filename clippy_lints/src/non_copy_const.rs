@@ -19,7 +19,7 @@
 
 use clippy_config::Conf;
 use clippy_utils::consts::{ConstEvalCtxt, Constant};
-use clippy_utils::diagnostics::{span_lint, span_lint_and_help, span_lint_and_then};
+use clippy_utils::diagnostics::{span_lint, span_lint_and_then};
 use clippy_utils::macros::macro_backtrace;
 use clippy_utils::ty::{get_field_idx_by_name, implements_trait};
 use clippy_utils::{def_path_def_ids, is_in_const_context};
@@ -41,35 +41,36 @@ use std::collections::hash_map::Entry;
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Checks for declaration of `const` items which is interior
-    /// mutable (e.g., contains a `Cell`, `Mutex`, `AtomicXxxx`, etc.).
+    /// Checks for the declaration of named constant which contain interior mutability.
     ///
     /// ### Why is this bad?
-    /// Consts are copied everywhere they are referenced, i.e.,
-    /// every time you refer to the const a fresh instance of the `Cell` or `Mutex`
-    /// or `AtomicXxxx` will be created, which defeats the whole purpose of using
-    /// these types in the first place.
+    /// Named constants are copied at every use site which means any change to their value
+    /// will be lost after the newly created value is dropped. e.g.
     ///
-    /// The `const` should better be replaced by a `static` item if a global
-    /// variable is wanted, or replaced by a `const fn` if a constructor is wanted.
+    /// ```rust
+    /// use core::sync::atomic::{AtomicUsize, Ordering};
+    /// const ATOMIC: AtomicUsize = AtomicUsize::new(0);
+    /// fn add_one() -> usize {
+    ///     // This will always return `0` since `ATOMIC` is copied before it's used.
+    ///     ATOMIC.fetch_add(1, Ordering::AcqRel)
+    /// }
+    /// ```
+    ///
+    /// If shared modification of the value is desired, a `static` item is needed instead.
+    /// If that is not desired, a `const fn` constructor should be used to make it obvious
+    /// at the use site that a new value is created.
     ///
     /// ### Known problems
-    /// A "non-constant" const item is a legacy way to supply an
-    /// initialized value to downstream `static` items (e.g., the
-    /// `std::sync::ONCE_INIT` constant). In this case the use of `const` is legit,
-    /// and this lint should be suppressed.
+    /// Prior to `const fn` stabilization this was the only way to provide a value which
+    /// could initialize a `static` item (e.g. the `std::sync::ONCE_INIT` constant). In
+    /// this case the use of `const` is required and this lint should be suppressed.
     ///
-    /// Even though the lint avoids triggering on a constant whose type has enums that have variants
-    /// with interior mutability, and its value uses non interior mutable variants (see
-    /// [#3962](https://github.com/rust-lang/rust-clippy/issues/3962) and
-    /// [#3825](https://github.com/rust-lang/rust-clippy/issues/3825) for examples);
-    /// it complains about associated constants without default values only based on its types;
-    /// which might not be preferable.
-    /// There're other enums plus associated constants cases that the lint cannot handle.
-    ///
-    /// Types that have underlying or potential interior mutability trigger the lint whether
-    /// the interior mutable field is used or not. See issue
-    /// [#5812](https://github.com/rust-lang/rust-clippy/issues/5812)
+    /// There also exists types which contain private fields with interior mutability, but
+    /// no way to both create a value as a constant and modify any mutable field using the
+    /// type's public interface (e.g. `bytes::Bytes`). As there is no reasonable way to
+    /// scan a crate's interface to see if this is the case, all such types will be linted.
+    /// If this happens use the `ignore-interior-mutability` configuration option to allow
+    /// the type.
     ///
     /// ### Example
     /// ```no_run
@@ -95,26 +96,42 @@ declare_clippy_lint! {
 
 declare_clippy_lint! {
     /// ### What it does
-    /// Checks if `const` items which is interior mutable (e.g.,
-    /// contains a `Cell`, `Mutex`, `AtomicXxxx`, etc.) has been borrowed directly.
+    /// Checks for a borrow of a named constant with interior mutability.
     ///
     /// ### Why is this bad?
-    /// Consts are copied everywhere they are referenced, i.e.,
-    /// every time you refer to the const a fresh instance of the `Cell` or `Mutex`
-    /// or `AtomicXxxx` will be created, which defeats the whole purpose of using
-    /// these types in the first place.
+    /// Named constants are copied at every use site which means any change to their value
+    /// will be lost after the newly created value is dropped. e.g.
     ///
-    /// The `const` value should be stored inside a `static` item.
+    /// ```rust
+    /// use core::sync::atomic::{AtomicUsize, Ordering};
+    /// const ATOMIC: AtomicUsize = AtomicUsize::new(0);
+    /// fn add_one() -> usize {
+    ///     // This will always return `0` since `ATOMIC` is copied before it's borrowed
+    ///     // for use by `fetch_add`.
+    ///     ATOMIC.fetch_add(1, Ordering::AcqRel)
+    /// }
+    /// ```
     ///
     /// ### Known problems
-    /// When an enum has variants with interior mutability, use of its non
-    /// interior mutable variants can generate false positives. See issue
-    /// [#3962](https://github.com/rust-lang/rust-clippy/issues/3962)
+    /// This lint does not, and cannot in general, determine if the borrow of the constant
+    /// is used in a way which causes a mutation. e.g.
     ///
-    /// Types that have underlying or potential interior mutability trigger the lint whether
-    /// the interior mutable field is used or not. See issues
-    /// [#5812](https://github.com/rust-lang/rust-clippy/issues/5812) and
-    /// [#3825](https://github.com/rust-lang/rust-clippy/issues/3825)
+    /// ```rust
+    /// use core::cell::Cell;
+    /// const CELL: Cell<usize> = Cell::new(0);
+    /// fn get_cell() -> Cell<usize> {
+    ///     // This is fine. It borrows a copy of `CELL`, but never mutates it through the
+    ///     // borrow.
+    ///     CELL.clone()
+    /// }
+    /// ```
+    ///
+    /// There also exists types which contain private fields with interior mutability, but
+    /// no way to both create a value as a constant and modify any mutable field using the
+    /// type's public interface (e.g. `bytes::Bytes`). As there is no reasonable way to
+    /// scan a crate's interface to see if this is the case, all such types will be linted.
+    /// If this happens use the `ignore-interior-mutability` configuration option to allow
+    /// the type.
     ///
     /// ### Example
     /// ```no_run
@@ -697,17 +714,15 @@ impl<'tcx> LateLintPass<'tcx> for NonCopyConst<'tcx> {
                 cx,
                 DECLARE_INTERIOR_MUTABLE_CONST,
                 item.ident.span,
-                "a `const` item should not be interior mutable",
+                "named constant with interior mutability",
                 |diag| {
                     let Some(sync_trait) = cx.tcx.lang_items().sync_trait() else {
                         return;
                     };
                     if implements_trait(cx, ty, sync_trait, &[]) {
-                        diag.help("consider making this a static item");
+                        diag.help("did you mean to make this a `static` item");
                     } else {
-                        diag.help(
-                            "consider making this `Sync` so that it can go in a static item or using a `thread_local`",
-                        );
+                        diag.help("did you mean to make this a `thread_local!` item");
                     }
                 },
             );
@@ -741,7 +756,7 @@ impl<'tcx> LateLintPass<'tcx> for NonCopyConst<'tcx> {
                 cx,
                 DECLARE_INTERIOR_MUTABLE_CONST,
                 item.ident.span,
-                "a `const` item should not be interior mutable",
+                "named constant with interior mutability",
             );
         }
     }
@@ -793,7 +808,7 @@ impl<'tcx> LateLintPass<'tcx> for NonCopyConst<'tcx> {
                 cx,
                 DECLARE_INTERIOR_MUTABLE_CONST,
                 item.ident.span,
-                "a `const` item should not be interior mutable",
+                "named constant with interior mutability",
             );
         }
     }
@@ -825,13 +840,17 @@ impl<'tcx> LateLintPass<'tcx> for NonCopyConst<'tcx> {
             }
             && !in_external_macro(cx.sess(), borrow_src.expr.span)
         {
-            span_lint_and_help(
+            span_lint_and_then(
                 cx,
                 BORROW_INTERIOR_MUTABLE_CONST,
                 borrow_src.expr.span,
-                "a `const` item with interior mutability should not be borrowed",
-                None,
-                "assign this const to a local or static variable, and use the variable here",
+                "borrow of a named constant with interior mutability",
+                |diag| {
+                    diag.help("this lint can be silenced by assigning the value to a local variable before borrowing");
+                    if let Some(note) = borrow_src.cause.note() {
+                        diag.note(note);
+                    }
+                },
             );
         }
     }
