@@ -1,0 +1,20 @@
+name: Check Pull Request Description
+
+on:
+  pull_request:
+    # synchronize is not technically needed, but 
+    types: [opened, edited, synchronize]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: |
+          body=$(jq -r <<< '${{ toJson(github.event.pull_request.body) }}')
+          if [[ -z $(grep -oP 'changelog: *\K\S+' <<< "$body") ]]; then
+            echo '::error title=Test::Please write a short comment explaining your change (or "none" for internal only changes)'
+            exit 1
+          fi
+
+#             echo '::error title=Pull Request body is missing `changelog: ...`::Please write a short comment explaining your change (or "none" for internal only changes)'
