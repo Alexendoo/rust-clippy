@@ -268,24 +268,26 @@ pub fn main() {
 
         let mut no_deps = false;
         let clippy_args_var = env::var("CLIPPY_ARGS").ok();
-        let clippy_args = clippy_args_var
-            .as_deref()
-            .unwrap_or_default()
-            .split("__CLIPPY_HACKERY__")
-            .filter_map(|s| match s {
-                "" => None,
-                "--no-deps" => {
-                    no_deps = true;
-                    None
-                },
-                _ => Some(s.to_string()),
-            })
-            .chain(vec!["--cfg".into(), "clippy".into()])
-            .collect::<Vec<String>>();
+
+        args.extend(
+            clippy_args_var
+                .as_deref()
+                .unwrap_or_default()
+                .split("__CLIPPY_HACKERY__")
+                .filter_map(|s| match s {
+                    "" => None,
+                    "--no-deps" => {
+                        no_deps = true;
+                        None
+                    },
+                    _ => Some(s.to_string()),
+                }),
+        );
+        args.push("--cfg=clippy".into());
 
         // If no Clippy lints will be run we do not need to run Clippy
-        let cap_lints_allow = arg_value(&orig_args, "--cap-lints", |val| val == "allow").is_some()
-            && arg_value(&orig_args, "--force-warn", |val| val.contains("clippy::")).is_none();
+        let cap_lints_allow = arg_value(&args, "--cap-lints", |val| val == "allow").is_some()
+            && arg_value(&args, "--force-warn", |val| val.contains("clippy::")).is_none();
 
         // If `--no-deps` is enabled only lint the primary package
         let relevant_package = !no_deps || env::var("CARGO_PRIMARY_PACKAGE").is_ok();
@@ -296,7 +298,6 @@ pub fn main() {
 
         let clippy_enabled = !cap_lints_allow && relevant_package && !info_query;
         if clippy_enabled {
-            args.extend(clippy_args);
             rustc_driver::run_compiler(&args, &mut ClippyCallbacks { clippy_args_var });
         } else {
             rustc_driver::run_compiler(&args, &mut RustcCallbacks { clippy_args_var });

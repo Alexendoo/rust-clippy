@@ -1,23 +1,10 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use std::num::NonZero;
 use std::path::PathBuf;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Clone, Debug)]
 #[command(args_conflicts_with_subcommands = true)]
 pub(crate) struct LintcheckConfig {
-    /// Number of threads to use (default: all unless --fix or --recursive)
-    #[clap(
-        long = "jobs",
-        short = 'j',
-        value_name = "N",
-        default_value_t = 0,
-        default_value_if("perf", "true", Some("1")), // Limit jobs to 1 when benchmarking
-        conflicts_with("perf"),
-        required = false,
-        hide_default_value = true
-    )]
-    pub max_jobs: usize,
     /// Set the path for a crates.toml where lintcheck should read the sources from
     #[clap(
         long = "crates-toml",
@@ -28,33 +15,37 @@ pub(crate) struct LintcheckConfig {
         hide_env = true
     )]
     pub sources_toml_path: PathBuf,
+
     /// File to save the clippy lint results here
     #[clap(skip = "")]
     pub lintcheck_results_path: PathBuf, // Overridden in new()
+
     /// Only process a single crate on the list
     #[clap(long, value_name = "CRATE")]
     pub only: Option<String>,
-    /// Runs cargo clippy --fix and checks if all suggestions apply
-    #[clap(long, conflicts_with("max_jobs"))]
-    pub fix: bool,
+
     /// Apply a filter to only collect specified lints
     #[clap(long = "filter", value_name = "clippy_lint_name", use_value_delimiter = true)]
     pub lint_filter: Vec<String>,
+
     /// Check all Clippy lints, by default only `clippy::all` and `clippy::pedantic` are checked.
     /// Usually, it's better to use `--filter` instead
-    #[clap(long, conflicts_with("lint_filter"))]
+    #[clap(long, conflicts_with = "lint_filter")]
     pub all_lints: bool,
+
     /// Set the output format of the log file
     #[clap(long, short, default_value = "text")]
     pub format: OutputFormat,
+
     /// Run clippy on the dependencies of crates specified in crates-toml
-    #[clap(long, conflicts_with("max_jobs"))]
+    #[clap(long, conflicts_with = "only")]
     pub recursive: bool,
-    /// Also produce a `perf.data` file, implies --jobs=1,
-    /// the `perf.data` file can be found at
-    /// `target/lintcheck/sources/<package>-<version>/perf.data`
+
+    /// Run `perf` on crates being linted the `perf.data` files can be found in
+    /// `target/lintcheck/perf`
     #[clap(long)]
     pub perf: bool,
+
     #[command(subcommand)]
     pub subcommand: Option<Commands>,
 }
@@ -108,15 +99,6 @@ impl LintcheckConfig {
             filename.display(),
             config.format.file_extension(),
         ));
-
-        // look at the --threads arg, if 0 is passed, use the threads count
-        if config.max_jobs == 0 {
-            config.max_jobs = if config.fix || config.recursive {
-                1
-            } else {
-                std::thread::available_parallelism().map_or(1, NonZero::get)
-            };
-        }
 
         for lint_name in &mut config.lint_filter {
             *lint_name = format!(
