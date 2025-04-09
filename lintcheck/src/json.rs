@@ -10,7 +10,7 @@ use std::path::Path;
 use itertools::{EitherOrBoth, Itertools};
 use serde::{Deserialize, Serialize};
 
-use crate::ClippyWarning;
+use crate::output::ClippyWarning;
 
 /// This is the total number. 300 warnings results in 100 messages per section.
 const DEFAULT_LIMIT_PER_LINT: usize = 300;

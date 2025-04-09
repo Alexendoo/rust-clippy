@@ -1,54 +1,97 @@
+use bstr::ByteSlice;
+use bstr::io::BufReadExt;
+use serde::{Deserialize, Serialize};
+
 use crate::recursive::{DriverInfo, deserialize_line, serialize_line};
 
+use std::env;
+use std::fmt::Write as _;
 use std::io::{self, BufReader, Write};
 use std::net::TcpStream;
 use std::process::{self, Command, Stdio};
-use std::{env, mem};
 
-/// 1. Sends [`DriverInfo`] to the [`crate::recursive::LintcheckServer`] running on `addr`
-/// 2. Receives [bool] from the server, if `false` returns `None`
-/// 3. Otherwise sends the stderr of running `clippy-driver` to the server
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum DriverMode {
+    Clippy,
+    Perf,
+    Rustc,
+}
+
+fn perf_data_path(package: &DriverInfo) -> String {
+    let mut path = env::var("PERF_DIR").unwrap();
+    let _ = write!(&mut path, "/{}", package.package_name);
+    let crate_name = env::var("CARGO_CRATE_NAME").unwrap();
+    if crate_name != package.package_name {
+        let _ = write!(&mut path, ".{crate_name}");
+    }
+    path.push_str(".data");
+    path
+}
+
+/// 1. Sends [`PackageInfo`] to the [`crate::recursive::LintcheckServer`] running on `addr`
+/// 2. Receives [`DriverMode`] from the server and acts acordingly
 fn run_clippy(addr: &str) -> Option<i32> {
-    let driver_info = DriverInfo {
+    let info = DriverInfo {
         package_name: env::var("CARGO_PKG_NAME").ok()?,
+        crate_name: env::var("CARGO_CRATE_NAME").ok()?,
         version: env::var("CARGO_PKG_VERSION").ok()?,
     };
 
     let mut stream = BufReader::new(TcpStream::connect(addr).unwrap());
 
-    serialize_line(&driver_info, stream.get_mut());
+    serialize_line(&info, stream.get_mut());
 
-    let should_run = deserialize_line::<bool, _>(&mut stream);
-    if !should_run {
-        return None;
+    let clippy_driver = || env::var("CLIPPY_DRIVER").unwrap();
+    let mut cmd;
+    match deserialize_line::<DriverMode, _>(&mut stream) {
+        DriverMode::Clippy => cmd = Command::new(clippy_driver()),
+        DriverMode::Perf => {
+            cmd = Command::new("perf");
+            cmd.args([
+                "record",
+                "-e",
+                "instructions", // Only count instructions
+                "-g",           // Enable call-graph, useful for flamegraphs and produces richer reports
+                "--quiet",      // Do not tamper with clippy's normal output
+                "--compression-level=22",
+                "--freq=3000",
+                "-o",
+                &perf_data_path(&info),
+                "--",
+                &clippy_driver(),
+            ]);
+        },
+        DriverMode::Rustc => return None,
     }
 
-    // Remove --cap-lints allow so that clippy runs and lints are emitted
-    let mut include_next = true;
-    let args = env::args().skip(1).filter(|arg| match arg.as_str() {
-        "--cap-lints=allow" => false,
-        "--cap-lints" => {
-            include_next = false;
-            false
-        },
-        _ => mem::replace(&mut include_next, true),
-    });
-
-    let output = Command::new(env::var("CLIPPY_DRIVER").expect("missing env CLIPPY_DRIVER"))
-        .args(args)
-        .stdout(Stdio::inherit())
-        .output()
+    let mut child = cmd
+        .args(env::args_os().skip(1))
+        .stderr(Stdio::piped())
+        .spawn()
         .expect("failed to run clippy-driver");
+
+    let mut child_stderr = BufReader::new(child.stderr.take().unwrap());
+    let mut diagnostics = Vec::new();
+    child_stderr
+        .for_byte_line_with_terminator(|line| {
+            if line.contains_str(r#""$message_type":"diagnostic""#) {
+                diagnostics.extend(line);
+            } else {
+                io::stderr().write_all(&line).unwrap();
+            }
+            Ok(true)
+        })
+        .unwrap();
 
     stream
         .get_mut()
-        .write_all(&output.stderr)
-        .unwrap_or_else(|e| panic!("{e:?} in {driver_info:?}"));
+        .write_all(&diagnostics)
+        .unwrap_or_else(|e| panic!("{e:?} in {info:?}"));
 
-    match output.status.code() {
+    match child.wait().unwrap().code() {
         Some(0) => Some(0),
         code => {
-            io::stderr().write_all(&output.stderr).unwrap();
+            io::stderr().write_all(&diagnostics).unwrap();
             Some(code.expect("killed by signal"))
         },
     }
