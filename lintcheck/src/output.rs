@@ -1,52 +1,11 @@
 use cargo_metadata::diagnostic::{Diagnostic, DiagnosticSpan};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{self, Write as _};
+use std::fmt::Write;
 use std::fs;
 use std::path::Path;
-use std::process::ExitStatus;
 
 use crate::config::{LintcheckConfig, OutputFormat};
-
-/// A single emitted output from clippy being executed on a crate. It may either be a
-/// `ClippyWarning`, or a `RustcIce` caused by a panic within clippy. A crate may have many
-/// `ClippyWarning`s but a maximum of one `RustcIce` (at which point clippy halts execution).
-#[derive(Debug)]
-pub enum ClippyCheckOutput {
-    ClippyWarning(ClippyWarning),
-    RustcIce(RustcIce),
-}
-
-#[derive(Debug)]
-pub struct RustcIce {
-    pub crate_name: String,
-    pub ice_content: String,
-}
-
-impl fmt::Display for RustcIce {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}:\n{}\n========================================\n",
-            self.crate_name, self.ice_content
-        )
-    }
-}
-
-impl RustcIce {
-    pub fn from_stderr_and_status(crate_name: &str, status: ExitStatus, stderr: &str) -> Option<Self> {
-        if status.code().unwrap_or(0) == 101
-        /* ice exit status */
-        {
-            Some(Self {
-                crate_name: crate_name.to_owned(),
-                ice_content: stderr.to_owned(),
-            })
-        } else {
-            None
-        }
-    }
-}
 
 /// A single warning that clippy issued while checking a `Crate`
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -67,7 +26,7 @@ impl ClippyWarning {
             return None;
         }
 
-        // --recursive bypasses cargo so we have to strip the rendered output ourselves
+        // Driver bypasses cargo so we have to strip the rendered output ourselves
         let rendered = diag.rendered.as_mut().unwrap();
         *rendered = strip_ansi_escapes::strip_str(&rendered);
 
@@ -126,12 +85,7 @@ impl ClippyWarning {
 }
 
 /// Creates the log file output for [`OutputFormat::Text`] and [`OutputFormat::Markdown`]
-pub fn summarize_and_print_changes(
-    warnings: &[ClippyWarning],
-    ices: &[RustcIce],
-    clippy_ver: String,
-    config: &LintcheckConfig,
-) -> String {
+pub fn summarize_and_print_changes(warnings: &[ClippyWarning], clippy_ver: String, config: &LintcheckConfig) -> String {
     // generate some stats
     let (stats_formatted, new_stats) = gather_stats(warnings);
     let old_stats = read_stats_from_file(&config.lintcheck_results_path);
@@ -148,10 +102,6 @@ pub fn summarize_and_print_changes(
         text.push_str("| --- | --- | --- |\n");
     }
     write!(text, "{}", all_msgs.join("")).unwrap();
-    text.push_str("\n\n### ICEs:\n");
-    for ice in ices {
-        writeln!(text, "{ice}").unwrap();
-    }
 
     print_stats(old_stats, new_stats, &config.lint_filter);
 

@@ -11,17 +11,17 @@ publish = false
 default-run = "lintcheck"
 
 [dependencies]
-cargo_metadata = "0.15.3"
+bstr = "1.11.3"
+cargo_metadata = "0.19.2"
+cargo-util-schemas = "0.8.0"
 clap = { version = "4.4", features = ["derive", "env"] }
-crossbeam-channel = "0.5.6"
+crossbeam-channel = "0.5.14"
 diff = "0.1.13"
-flate2 = "1.0"
 itertools = "0.13"
-rayon = "1.5.1"
+semver = "1.0.23"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.85"
 strip-ansi-escapes = "0.2.0"
-tar = "0.4"
 toml = "0.7.3"
 ureq = { version = "2.2", features = ["json"] }
 walkdir = "2.3"
