@@ -1,0 +1,45 @@
+name: Lintcheck summary comment
+
+on:
+  workflow_run:
+    workflows: [Lintcheck]
+    types: [completed]
+
+# Restrict the default permission scope https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#defining-access-for-the-github_token-scopes
+permissions:
+  pull-requests: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - run: echo "${{ toJSON(github) }}"
+
+      # The workflow_run event runs in the context of the Clippy repo giving it
+      # write access, needed here to create a PR comment when the PR originates
+      # from a fork
+      #
+      # This action must not checkout/run code from the originating workflow_run
+      # or interpolate ${{}} untrusted fields into the script
+      #
+      # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#workflow_run
+      # https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
+      - run: |
+          body() {
+            echo "Lintcheck changes for ${{ github.event.workflow_run.head_sha }}"
+            echo
+            cat -
+            echo
+            echo "This comment will be updated if you push new changes"
+          }
+
+          if gh run download --name summary "${{ github.event.workflow_run.id }}"; then
+            body < summary.md | gh pr comment "$PR" --body-file - --edit-last --create-if-none
+          else
+            body <<< "*No changes*" | gh pr comment "$PR" --body-file - --edit-last || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.workflow_run.pull_requests[0].number }}

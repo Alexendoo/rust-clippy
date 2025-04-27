@@ -4,8 +4,9 @@
 //! loading warnings from JSON files, and generating human-readable diffs
 //! between different linting runs.
 
-use std::fs;
-use std::path::Path;
+use std::fmt::Write;
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use itertools::{EitherOrBoth, Itertools};
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,6 @@ const DEFAULT_LIMIT_PER_LINT: usize = 300;
 /// Target for total warnings to display across all lints when truncating output.
 const TRUNCATION_TOTAL_TARGET: usize = 1000;
 
-/// Representation of a single Clippy warning for JSON serialization.
 #[derive(Debug, Deserialize, Serialize)]
 struct LintJson {
     /// The lint name e.g. `clippy::bytes_nth`
@@ -29,7 +29,6 @@ struct LintJson {
 }
 
 impl LintJson {
-    /// Returns a tuple of name and `file_line` for sorting and comparison.
     fn key(&self) -> impl Ord + '_ {
         (self.name.as_str(), self.file_line.as_str())
     }
@@ -74,7 +73,7 @@ fn load_warnings(path: &Path) -> Vec<LintJson> {
 ///
 /// Compares warnings from `old_path` and `new_path`, then displays a summary table
 /// and detailed information about added, removed, and changed warnings.
-pub(crate) fn diff(old_path: &Path, new_path: &Path, truncate: bool) {
+pub(crate) fn diff(old_path: &Path, new_path: &Path, truncate: bool, write_summary: Option<PathBuf>) {
     let old_warnings = load_warnings(old_path);
     let new_warnings = load_warnings(new_path);
 
@@ -108,11 +107,13 @@ pub(crate) fn diff(old_path: &Path, new_path: &Path, truncate: bool) {
         }
     }
 
-    print_summary_table(&lint_warnings);
-    println!();
-
     if lint_warnings.is_empty() {
         return;
+    }
+
+    let summary = format_summary(&lint_warnings);
+    if let Some(path) = write_summary {
+        fs::write(path, &summary).unwrap();
     }
 
     let truncate_after = if truncate {
@@ -126,6 +127,7 @@ pub(crate) fn diff(old_path: &Path, new_path: &Path, truncate: bool) {
         usize::MAX
     };
 
+    println!("{summary}");
     for lint in lint_warnings {
         print_lint_warnings(&lint, truncate_after);
     }
@@ -162,20 +164,36 @@ fn print_lint_warnings(lint: &LintWarnings, truncate_after: usize) {
     print_changed_diff(&lint.changed, truncate_after / 3);
 }
 
-/// Prints a summary table of all lints with counts of added, removed, and changed warnings.
-fn print_summary_table(lints: &[LintWarnings]) {
-    println!("| Lint                                       | Added   | Removed | Changed |");
-    println!("| ------------------------------------------ | ------: | ------: | ------: |");
+fn format_summary(lints: &[LintWarnings]) -> String {
+    let mut summary = "\
+| Lint | Added | Removed | Changed |
+| ---- | ----: | ------: | ------: |
+"
+    .to_string();
+
+    // Create an absolute URL when running under github actions so the summary can be posted as a
+    // comment
+    let base_url = if let Ok(repo) = env::var("GITHUB_REPOSITORY")
+        && let Ok(run_id) = env::var("GITHUB_RUN_ID")
+    {
+        format!("https://github.com/{repo}/actions/runs/{run_id}")
+    } else {
+        String::new()
+    };
 
     for lint in lints {
-        println!(
-            "| {:<62} | {:>7} | {:>7} | {:>7} |",
-            format!("[`{}`](#user-content-{})", lint.name, to_html_id(&lint.name)),
+        let _ = writeln!(
+            &mut summary,
+            "| [`{}`]({base_url}#user-content-{}) | {} | {} | {} |",
+            lint.name,
+            to_html_id(&lint.name),
             lint.added.len(),
             lint.removed.len(),
             lint.changed.len()
         );
     }
+
+    summary
 }
 
 /// Prints a section of warnings with a header and formatted code blocks.
