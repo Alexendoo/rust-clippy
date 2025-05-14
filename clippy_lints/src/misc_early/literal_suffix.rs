@@ -33,7 +33,7 @@ pub(super) fn check(cx: &EarlyContext<'_>, lit_span: Span, lit_snip: &str, suffi
                 cx,
                 UNSEPARATED_LITERAL_SUFFIX,
                 lit_span,
-                format!("{sugg_type} type suffix should be separated by an underscore"),
+                format!("{sugg_type} type suffix should be separated by _"),
                 |diag| {
                     diag.span_suggestion(
                         lit_span,
